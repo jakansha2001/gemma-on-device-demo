@@ -113,16 +113,14 @@ class _UserBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
+    return _BubbleAlign(
       alignment: Alignment.centerRight,
+      widthFactor: .82,
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * .82,
-        ),
         margin: const EdgeInsets.only(bottom: 14, left: 40),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          gradient: AppColors.accentGradient,
+          color: AppColors.accent,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(AppRadius.bubble),
             topRight: Radius.circular(AppRadius.bubble),
@@ -159,8 +157,9 @@ class _UserBubble extends StatelessWidget {
               Text(
                 entry.text,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
+                  color: AppColors.onAccent,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w500,
                   height: 1.4,
                 ),
               ),
@@ -182,12 +181,10 @@ class _ModelBubble extends StatelessWidget {
     final hasThinking = (entry.thinking ?? '').trim().isNotEmpty;
     final body = entry.text.trim();
 
-    return Align(
+    return _BubbleAlign(
       alignment: Alignment.centerLeft,
+      widthFactor: .86,
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * .86,
-        ),
         margin: const EdgeInsets.only(bottom: 14, right: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,10 +269,7 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
             onTap: () => setState(() => _open = !_open),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 9,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -289,9 +283,9 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
                     'Reasoning',
                     style: TextStyle(
                       color: AppColors.thinking,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .2,
                     ),
                   ),
                   Gap.wSm,
@@ -372,30 +366,34 @@ class _ToolBubble extends StatelessWidget {
                   '${entry.toolName}()',
                   style: const TextStyle(
                     color: AppColors.tool,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'monospace',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: AppFonts.mono,
                   ),
                 ),
               ),
               TagChip(
-                label: pending ? 'CALLING' : 'TOOL CALL',
+                label: pending ? 'Calling' : 'Tool call',
                 color: AppColors.tool,
               ),
             ],
           ),
+          // The arguments and the result are JSON, so they sit on the code
+          // surface rather than loose on the card: on a projector that is what
+          // tells the room "this part is data, not prose".
           if (entry.toolArgs != null && entry.toolArgs!.isNotEmpty) ...[
             Gap.sm,
-            Text(_pretty(entry.toolArgs!), style: AppText.mono),
+            _CodeBlock(
+              child: Text(_pretty(entry.toolArgs!), style: AppText.mono),
+            ),
           ],
           if (entry.toolResult != null) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 9),
-              child: Divider(height: 1),
-            ),
-            Text(
-              _pretty(entry.toolResult!),
-              style: AppText.mono.copyWith(color: AppColors.textPrimary),
+            Gap.sm,
+            _CodeBlock(
+              child: Text(
+                _pretty(entry.toolResult!),
+                style: AppText.mono.copyWith(color: AppColors.textPrimary),
+              ),
             ),
           ],
         ],
@@ -489,6 +487,55 @@ class _TypingDotsState extends State<_TypingDots>
           }),
         ),
       ),
+    );
+  }
+}
+
+/// Aligns a bubble to one side and caps it at a fraction of the width it is
+/// *given* — which is the readable column, not the whole window.
+class _BubbleAlign extends StatelessWidget {
+  const _BubbleAlign({
+    required this.alignment,
+    required this.widthFactor,
+    required this.child,
+  });
+
+  final Alignment alignment;
+  final double widthFactor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: alignment,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: constraints.maxWidth * widthFactor,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// A JSON block inside a tool card.
+class _CodeBlock extends StatelessWidget {
+  const _CodeBlock({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCode,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: child,
     );
   }
 }

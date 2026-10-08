@@ -16,7 +16,9 @@ abstract final class AudioConverter {
   static ({Uint8List pcm, int sampleRate, int channels, int bitsPerSample})
   parseWav(Uint8List bytes) {
     if (bytes.length < 44) {
-      throw const FormatException('Not a WAV file: shorter than a 44-byte header');
+      throw const FormatException(
+        'Not a WAV file: shorter than a 44-byte header',
+      );
     }
     final data = ByteData.sublistView(bytes);
 
@@ -64,7 +66,9 @@ abstract final class AudioConverter {
       throw const FormatException('WAV file has no audio data');
     }
     if (bitsPerSample != 16) {
-      throw FormatException('Only 16-bit PCM is supported, got $bitsPerSample-bit');
+      throw FormatException(
+        'Only 16-bit PCM is supported, got $bitsPerSample-bit',
+      );
     }
     if (channels < 1) {
       throw const FormatException('WAV file reports zero channels');

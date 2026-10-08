@@ -23,6 +23,7 @@ class MessageComposer extends StatelessWidget {
     this.onAttach,
     this.onClearImage,
     this.onStop,
+    this.inset = 12,
   });
 
   final TextEditingController controller;
@@ -45,21 +46,22 @@ class MessageComposer extends StatelessWidget {
   /// When null, the send button stays a send button while busy (disabled).
   final VoidCallback? onStop;
 
+  /// Horizontal padding, so the field lines up with the transcript above it
+  /// on a wide window. The top border still spans the whole width.
+  final double inset;
+
   @override
   Widget build(BuildContext context) {
     final canStop = busy && onStop != null;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: EdgeInsets.fromLTRB(inset, 10, inset, 12),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         children: [
           if (pendingImage != null)
-            _AttachmentPreview(
-              bytes: pendingImage!,
-              onClear: onClearImage,
-            ),
+            _AttachmentPreview(bytes: pendingImage!, onClear: onClearImage),
           Row(
             children: [
               if (onAttach != null)
@@ -103,6 +105,9 @@ class MessageComposer extends StatelessWidget {
                     : onSend,
                 style: IconButton.styleFrom(
                   backgroundColor: canStop ? AppColors.danger : accent,
+                  // The accent is light enough that a white glyph on it
+                  // disappears; the stop state is dark enough that it doesn't.
+                  foregroundColor: canStop ? Colors.white : AppColors.onAccent,
                 ),
                 icon: Icon(
                   canStop ? Icons.stop_rounded : Icons.arrow_upward,

@@ -25,18 +25,19 @@ class GemmaService {
       FlutterEdgeAi.isModelInstalled(Models.llmFilename);
 
   /// Download + register the model. Idempotent: if the file is already on
-  /// disk, flutter_gemma detects it and skips straight to marking it active.
+  /// disk, flutter_edge_ai detects it and skips straight to marking it active.
   Future<void> install({void Function(int percent)? onProgress}) async {
-    var builder = FlutterEdgeAi.installModel(
-      modelType: Models.llmModelType,
-      fileType: Models.llmFileType,
-    ).fromNetwork(
-      Models.llmUrl,
-      // Android only: run the download as a foreground service with a
-      // progress notification, so Android is less likely to pause a 2.6 GB
-      // download when the app goes to the background.
-      foreground: true,
-    );
+    var builder =
+        FlutterEdgeAi.installModel(
+          modelType: Models.llmModelType,
+          fileType: Models.llmFileType,
+        ).fromNetwork(
+          Models.llmUrl,
+          // Android only: run the download as a foreground service with a
+          // progress notification, so Android is less likely to pause a 2.6 GB
+          // download when the app goes to the background.
+          foreground: true,
+        );
     if (onProgress != null) builder = builder.withProgress(onProgress);
     await builder.install();
   }

@@ -302,6 +302,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final streaming = _liveText.isNotEmpty || _liveThinking.isNotEmpty;
+    // Padding, not a constrained box: a list inside a narrow box puts its
+    // scrollbar in the middle of a wide window.
+    final inset = pageInset(MediaQuery.sizeOf(context).width);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -325,8 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ? LoadingView(
                 title: 'Loading Gemma 4 onto the GPU',
                 accent: _accent,
-                subtitle:
-                    'The weights load once and are shared by every screen.',
+                subtitle: 'The model loads once and every screen shares it.',
               )
             : _failure != null
             ? ErrorView(failure: _failure!, onRetry: _init)
@@ -371,9 +373,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: SelectionArea(
                                   child: ListView.builder(
                                     controller: _scroll,
-                                    padding: const EdgeInsets.all(16),
+                                    padding: EdgeInsets.fromLTRB(
+                                      inset,
+                                      16,
+                                      inset,
+                                      16,
+                                    ),
                                     itemCount:
-                                        _messages.length + (_generating ? 1 : 0),
+                                        _messages.length +
+                                        (_generating ? 1 : 0),
                                     itemBuilder: (_, i) => i < _messages.length
                                         ? ChatBubble(entry: _messages[i])
                                         : ChatBubble(
@@ -391,8 +399,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               JumpToLatestButton(
                                 visible: !_autoScroll.isPinned,
                                 color: _accent,
-                                onPressed: () =>
-                                    setState(_autoScroll.resume),
+                                onPressed: () => setState(_autoScroll.resume),
                               ),
                             ],
                           ),
@@ -409,6 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onClearImage: () => setState(() => _pendingImage = null),
                     onSend: _send,
                     onStop: _stop,
+                    inset: inset,
                   ),
                 ],
               ),

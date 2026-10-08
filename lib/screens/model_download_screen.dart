@@ -100,11 +100,15 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
             ? ErrorView(
                 failure: _failure!,
                 onRetry: _download,
-                retryLabel: 'RETRY DOWNLOAD',
+                retryLabel: 'Retry download',
               )
-            : Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-                child: _downloading ? _progressBody() : _introBody(),
+            : PageWidth(
+                medium: 620,
+                expanded: 720,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+                  child: _downloading ? _progressBody() : _introBody(),
+                ),
               ),
       ),
     );
@@ -114,7 +118,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('ONE-TIME SETUP', style: AppText.label),
+        const Text('One-time setup', style: AppText.label),
         Gap.sm,
         const Text(Models.llmDisplayName, style: AppText.title),
         Gap.md,
@@ -127,13 +131,29 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
         AppCard(
           child: Column(
             children: const [
-              _SpecRow(icon: Icons.sd_storage_outlined, label: 'Download size', value: Models.llmSize),
+              _SpecRow(
+                icon: Icons.sd_storage_outlined,
+                label: 'Download size',
+                value: Models.llmSize,
+              ),
               Divider(height: 22),
-              _SpecRow(icon: Icons.memory_outlined, label: 'Free RAM needed', value: '~3 GB'),
+              _SpecRow(
+                icon: Icons.memory_outlined,
+                label: 'Free RAM needed',
+                value: '~3 GB',
+              ),
               Divider(height: 22),
-              _SpecRow(icon: Icons.key_off_outlined, label: 'Access token', value: 'Not required'),
+              _SpecRow(
+                icon: Icons.key_off_outlined,
+                label: 'Access token',
+                value: 'Not required',
+              ),
               Divider(height: 22),
-              _SpecRow(icon: Icons.bolt_outlined, label: 'Backend', value: 'GPU'),
+              _SpecRow(
+                icon: Icons.bolt_outlined,
+                label: 'Backend',
+                value: 'GPU',
+              ),
             ],
           ),
         ),
@@ -158,8 +178,8 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
           ),
         ),
         const Spacer(),
-        GradientButton(
-          label: 'DOWNLOAD MODEL',
+        PrimaryButton(
+          label: 'Download model',
           icon: Icons.download_rounded,
           onPressed: _download,
         ),
@@ -174,13 +194,13 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('DOWNLOADING ${Models.llmDisplayName.toUpperCase()}', style: AppText.label),
+        Text('Downloading ${Models.llmDisplayName}', style: AppText.label),
         Gap.md,
-        ShaderMask(
-          shaderCallback: (b) => AppColors.accentGradient.createShader(b),
-          child: Text(
-            '$_progress%',
-            style: AppText.hero.copyWith(fontSize: 64, color: Colors.white),
+        Text(
+          '$_progress%',
+          style: AppText.hero.copyWith(
+            fontSize: 64,
+            color: AppColors.accentBright,
           ),
         ),
         Gap.md,
@@ -205,8 +225,8 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
         ),
         Gap.sm,
         const Text(
-          'On Android this runs in a foreground service, so it survives the '
-          '9-minute background limit.',
+          'On Android this runs as a foreground service with a notification, '
+          'so the download keeps going when you leave the app.',
           textAlign: TextAlign.center,
           style: AppText.caption,
         ),

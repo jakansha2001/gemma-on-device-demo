@@ -24,7 +24,7 @@ class ToolWorkspace {
 
 /// The tool declarations handed to the model, and the Dart that runs them.
 ///
-/// Worth being precise about who does what: flutter_gemma **parses** the
+/// Worth being precise about who does what: flutter_edge_ai **parses** the
 /// model's call into a [FunctionCallResponse] and drives the loop, but it
 /// never executes anything. Tools are app actions, so running them — and
 /// deciding what a failure looks like — is entirely our job. That is why
@@ -145,15 +145,21 @@ abstract final class DemoTools {
     ),
   ];
 
+  /// The colours `set_accent_color` understands by name.
+  ///
+  /// Only jade and sand belong to the app's own palette; the rest are extra
+  /// tints kept light enough to stay readable on a warm near-black. They have
+  /// to match the colour the person actually asked for — saying "make it
+  /// purple" and getting green reads as a broken demo, not a styled one.
   static const _palette = <String, Color>{
     'red': AppColors.danger,
-    'orange': AppColors.accent,
+    'orange': Color(0xFFF09A4B),
     'yellow': AppColors.warning,
-    'green': AppColors.success,
-    'teal': AppColors.tool,
-    'blue': AppColors.vision,
-    'purple': AppColors.thinking,
-    'pink': AppColors.voice,
+    'green': AppColors.accent,
+    'teal': Color(0xFF4FD1C5),
+    'blue': Color(0xFF6AA9FF),
+    'purple': Color(0xFFB197FC),
+    'pink': Color(0xFFFF8BBD),
   };
 
   /// Run one call. Never throws — see the class doc.
@@ -279,7 +285,8 @@ abstract final class DemoTools {
           if (expr == null) return {'error': 'expression is required'};
           if (expr.length > maxExpressionLength) {
             return {
-              'error': 'expression is too long '
+              'error':
+                  'expression is too long '
                   '(max $maxExpressionLength characters)',
             };
           }
@@ -359,7 +366,8 @@ abstract final class DemoTools {
       if (shared == 0) continue;
       // Score against whichever side is shorter, so a terse query still
       // matches a wordy task and vice versa.
-      final score = shared /
+      final score =
+          shared /
           (taskWords.length < queryWords.length
               ? taskWords.length
               : queryWords.length);
@@ -375,13 +383,28 @@ abstract final class DemoTools {
   }
 
   static String _weekday(DateTime d) => const [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ][d.weekday - 1];
 
   static String _month(DateTime d) => const [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ][d.month - 1];
 }
 

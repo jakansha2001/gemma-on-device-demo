@@ -2,20 +2,20 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Every model the demo installs, in one place.
 ///
-/// The headline change from v1: the LLM is **Gemma 4 E2B in `.litertlm`
-/// format**, published by `litert-community`. Two consequences worth calling
-/// out on stage:
+/// The headline change from the first version of this talk: the LLM is
+/// **Gemma 4 E2B in `.litertlm` format**, published by `litert-community`.
+/// Two consequences worth calling out on stage:
 ///
-///  * **No Hugging Face token.** v1 used `google/gemma-3n-E2B-it-litert-preview`,
-///    a gated repo — the download 401s until you accept a licence and ship a
-///    token in the app. This repo is public, so the `.env` file, the
-///    `flutter_dotenv` dependency and the whole "get a token first" setup step
-///    are gone.
+///  * **No Hugging Face token.** It used to be
+///    `google/gemma-3n-E2B-it-litert-preview`, a gated repo — the download
+///    401s until you accept a licence and ship a token in the app. This repo
+///    is public, so the `.env` file, the `flutter_dotenv` dependency and the
+///    whole "get a token first" setup step are gone.
 ///  * **One file, three platforms.** `.litertlm` runs on Android, iOS *and*
 ///    desktop through the same `dart:ffi` LiteRT-LM engine. The older `.task`
 ///    format is MediaPipe-only and cannot load on desktop at all, which is why
-///    this app depends on `flutter_gemma_litertlm` and not
-///    `flutter_gemma_mediapipe`.
+///    this app depends on `flutter_edge_ai_litertlm` and not
+///    `flutter_edge_ai_mediapipe`.
 abstract final class Models {
   // --- The LLM ------------------------------------------------------------
   static const llmUrl =
@@ -115,8 +115,8 @@ abstract final class Models {
   ///
   /// This controls what the model WRITES, not what it hears: left to drift it
   /// can transcribe English audio into another language, or translate. Passing
-  /// it to `getActiveStt(language:)` (new in flutter_gemma 1.8.0) is a
-  /// per-call knob — changing it never reloads the model.
+  /// it to `getActiveStt(language:)` is a per-call knob — changing it never
+  /// reloads the model.
   static const sttLanguage = 'en';
 
   /// The recording cap, kept under Whisper's 30s graph with headroom for the

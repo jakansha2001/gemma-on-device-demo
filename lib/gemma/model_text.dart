@@ -3,7 +3,7 @@
 /// **Why an app needs this at all.** Gemma 4 is an "SDK passthrough" model:
 /// its tool calls and its reasoning both travel through the same text stream
 /// as the answer, wrapped in markers the runtime is supposed to strip.
-/// flutter_gemma does strip them — but it classifies a turn by its FIRST
+/// flutter_edge_ai does strip them — but it classifies a turn by its FIRST
 /// character, so a turn shaped like
 ///
 /// ```text
@@ -32,7 +32,10 @@ abstract final class ModelText {
   );
 
   /// A reasoning block that has not closed yet, mid-stream.
-  static final _openThoughtBlock = RegExp(r'<\|channel>thought\n?.*$', dotAll: true);
+  static final _openThoughtBlock = RegExp(
+    r'<\|channel>thought\n?.*$',
+    dotAll: true,
+  );
 
   /// Also seen from DeepSeek/Qwen-style models.
   static final _thinkBlock = RegExp(r'<think>.*?</think>', dotAll: true);
@@ -42,9 +45,7 @@ abstract final class ModelText {
   ///
   /// Deliberately keeps accented Latin (Latin-1 Supplement and Latin Extended-A)
   /// so "café" and "naïve" survive.
-  static final _nonLatin = RegExp(
-    r'[^\u0000-\u024F\u2010-\u203A\s]',
-  );
+  static final _nonLatin = RegExp(r'[^\u0000-\u024F\u2010-\u203A\s]');
 
   /// Prepare [text] for an English speech synthesizer.
   ///
@@ -65,10 +66,7 @@ abstract final class ModelText {
     // whitespace or the end counts — a spaced dash used as punctuation
     // ("Yes — it costs") has a space on its left and is left alone.
     return stripped
-        .replaceAllMapped(
-          RegExp(r'(\w)[-–—](\s|$)'),
-          (m) => '${m[1]}${m[2]}',
-        )
+        .replaceAllMapped(RegExp(r'(\w)[-–—](\s|$)'), (m) => '${m[1]}${m[2]}')
         .replaceAll(RegExp(r'\s{2,}'), ' ')
         .trim();
   }

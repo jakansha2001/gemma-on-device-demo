@@ -8,7 +8,7 @@ import 'package:gemma_vision_demo/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // THE breaking change in flutter_gemma 1.0: the core package registers no
+  // THE thing to know about flutter_edge_ai: the core package registers no
   // inference engine at all. Whatever you added to pubspec.yaml, you hand to
   // initialize() here — otherwise getActiveModel() throws "no engine
   // registered" at runtime, not at compile time.
@@ -21,7 +21,8 @@ Future<void> main() async {
     ttsBackends: const [LiteRtTtsBackend()],
     maxDownloadRetries: 10,
     // No `huggingFaceToken:` — every model in this demo lives in a public
-    // repo. v1 needed one because Gemma 3n is gated.
+    // repo. The first version of this talk needed one, because Gemma 3n is
+    // gated.
   );
 
   // Set to `verbose` to watch prompts and generated tokens in the console
@@ -40,6 +41,9 @@ class GemmaDemoApp extends StatelessWidget {
       title: 'Gemma On-Device Demo',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // One backdrop under every route, rather than each screen painting its
+      // own and drifting apart.
+      builder: (context, child) => AppBackground(child: child!),
       home: const HomeScreen(),
     );
   }

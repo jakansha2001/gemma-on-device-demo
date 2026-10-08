@@ -39,11 +39,7 @@ class LoadingView extends StatelessWidget {
               ),
             ),
             Gap.lg,
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppText.heading,
-            ),
+            Text(title, textAlign: TextAlign.center, style: AppText.heading),
             if (subtitle != null) ...[
               Gap.sm,
               Text(
@@ -66,7 +62,7 @@ class ErrorView extends StatefulWidget {
     super.key,
     required this.failure,
     this.onRetry,
-    this.retryLabel = 'TRY AGAIN',
+    this.retryLabel = 'Try again',
   });
 
   final GemmaFailure failure;
@@ -122,16 +118,14 @@ class _ErrorViewState extends State<ErrorView> {
                       color: f.accent,
                     ),
                     Gap.wSm,
-                    Expanded(
-                      child: Text(f.hint!, style: AppText.bodySmall),
-                    ),
+                    Expanded(child: Text(f.hint!, style: AppText.bodySmall)),
                   ],
                 ),
               ),
             ],
             Gap.lg,
             if (widget.onRetry != null && f.canRetry)
-              GradientButton(
+              PrimaryButton(
                 label: widget.retryLabel,
                 icon: Icons.refresh_rounded,
                 busy: _retrying,
@@ -196,47 +190,56 @@ class EmptyView extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .1),
-                shape: BoxShape.circle,
+        // The column it sits in can be over a metre wide on a projector;
+        // centred prose needs a much shorter measure than that to read.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 30, color: accent),
               ),
-              child: Icon(icon, size: 30, color: accent),
-            ),
-            Gap.md,
-            Text(title, textAlign: TextAlign.center, style: AppText.heading),
-            Gap.sm,
-            Text(subtitle, textAlign: TextAlign.center, style: AppText.bodySmall),
-            if (suggestions.isNotEmpty) ...[
-              Gap.lg,
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final s in suggestions)
-                    ActionChip(
-                      label: Text(s, style: const TextStyle(fontSize: 12.5)),
-                      onPressed: onSuggestionTap == null
-                          ? null
-                          : () => onSuggestionTap!(s),
-                      backgroundColor: AppColors.surface,
-                      side: const BorderSide(color: AppColors.border),
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
-                    ),
-                ],
+              Gap.md,
+              Text(title, textAlign: TextAlign.center, style: AppText.heading),
+              Gap.sm,
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: AppText.bodySmall,
               ),
+              if (suggestions.isNotEmpty) ...[
+                Gap.lg,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final s in suggestions)
+                      ActionChip(
+                        label: Text(s, style: const TextStyle(fontSize: 13.5)),
+                        onPressed: onSuggestionTap == null
+                            ? null
+                            : () => onSuggestionTap!(s),
+                        backgroundColor: AppColors.surface,
+                        side: const BorderSide(color: AppColors.border),
+                        labelStyle: const TextStyle(
+                          color: AppColors.textSecondary,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

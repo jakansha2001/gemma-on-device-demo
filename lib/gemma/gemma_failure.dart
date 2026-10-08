@@ -4,7 +4,7 @@ import 'package:gemma_vision_demo/theme.dart';
 
 /// Everything that can go wrong, normalised into something showable.
 ///
-/// flutter_gemma gives us one genuinely typed family — the sealed
+/// flutter_edge_ai gives us one genuinely typed family — the sealed
 /// [DownloadError] behind [DownloadException] — and we use it directly. The
 /// rest (native engine init, OOM, unsupported ABI) surfaces as plain
 /// exceptions whose text is the only signal available, so those are matched on
@@ -68,7 +68,7 @@ class GemmaFailure {
     }
 
     // --- Heuristic path: native failures arrive as plain exceptions. -------
-    // Note: flutter_gemma's ModelException family lives under
+    // Note: flutter_edge_ai's ModelException family lives under
     // core/model_management/exceptions/ and is NOT exported from the public
     // barrel, so it cannot be matched by type from an app. Matching its
     // message is the only option available.
@@ -94,7 +94,7 @@ class GemmaFailure {
     if (lower.contains('no active inference model')) {
       return GemmaFailure(
         title: 'Model not installed',
-        message: 'The weights are not on this device yet.',
+        message: 'The model file is not on this device yet.',
         hint: 'Go back and download the model first.',
         icon: Icons.download_for_offline_outlined,
         raw: text,
@@ -107,8 +107,8 @@ class GemmaFailure {
       return GemmaFailure(
         title: 'No engine registered',
         message:
-            'flutter_gemma core ships no inference engine on its own. An '
-            'engine package must be passed to FlutterGemma.initialize().',
+            'flutter_edge_ai ships no inference engine on its own. An '
+            'engine package must be passed to FlutterEdgeAi.initialize().',
         hint: 'This is a build configuration bug, not a device problem.',
         canRetry: false,
         icon: Icons.extension_off_outlined,

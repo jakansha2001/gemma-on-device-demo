@@ -23,7 +23,7 @@ import 'package:record/record.dart';
 
 /// Push-to-talk speech → LLM → speech, entirely on-device.
 ///
-/// [VoiceSession] (flutter_gemma_speech) chains the three models into a single
+/// [VoiceSession] (flutter_edge_ai_speech) chains the three models into a single
 /// `runTurn` that streams [VoiceEvent]s. It owns no microphone and no player,
 /// so this screen supplies both: `record` captures 16 kHz mono WAV, and
 /// `just_audio` plays the synthesized reply back.
@@ -51,11 +51,13 @@ enum VoiceMode {
   /// stop. More natural, but background noise can trigger it.
   handsFree;
 
-  String get label => this == VoiceMode.pushToTalk ? 'Push to talk' : 'Hands-free';
+  String get label =>
+      this == VoiceMode.pushToTalk ? 'Push to talk' : 'Hands-free';
 }
 
 class _VoiceScreenState extends State<VoiceScreen> {
   final _recorder = AudioRecorder();
+
   /// A small pool, so one clip can load while another plays and decoding
   /// never lands in the gap between sentences.
   ///
@@ -114,7 +116,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   Timer? _timer;
 
   // --- Voice activity detection (hands-free only) ----------------------
-  // flutter_gemma ships no VAD, so we derive one from the recorder's own
+  // flutter_edge_ai ships no VAD, so we derive one from the recorder's own
   // amplitude stream. `Amplitude.current` is dBFS: 0 is full scale and
   // quiet rooms sit near -50. These two numbers are the whole heuristic and
   // are the first thing to tune if it misfires in a particular room.
@@ -122,7 +124,6 @@ class _VoiceScreenState extends State<VoiceScreen> {
   // [VoiceActivityDetector]. Two wrong versions of this shipped while the
   // logic was inline here and untestable.
   final _vad = VoiceActivityDetector();
-
 
   /// How long the mic may stay open hearing nothing before we give up.
   /// Without this, a trigger level that is never crossed leaves hands-free
@@ -169,9 +170,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   /// visible, not something the user has to infer from nothing happening.
   double _quietProgress = 0;
   // Tied to the STT graph's window — see Models.maxRecordingSeconds.
-  static const _maxRecording = Duration(
-    seconds: Models.maxRecordingSeconds,
-  );
+  static const _maxRecording = Duration(seconds: Models.maxRecordingSeconds);
 
   String? _transcript;
 
@@ -183,7 +182,6 @@ class _VoiceScreenState extends State<VoiceScreen> {
   /// before the audio did.
   String _spoken = '';
   String? _turnError;
-
 
   /// Guards the async gap between tapping and `_stage` actually flipping — a
   /// fast double-tap would otherwise start two recordings.
@@ -231,7 +229,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
       }
       // Pin the output language. Whisper is multilingual and will otherwise
       // drift — it can render English speech into another language. This is
-      // a per-call knob (flutter_gemma 1.8.0): it never reloads the model.
+      // a per-call knob: it never reloads the model.
       recognizer = await FlutterEdgeAi.getActiveStt(
         language: Models.sttLanguage,
       );
@@ -376,10 +374,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
                 ? 'Microphone access is blocked. Enable it in Settings.'
                 : 'Microphone permission is required to speak.',
             action: status.isPermanentlyDenied
-                ? SnackBarAction(
-                    label: 'SETTINGS',
-                    onPressed: openAppSettings,
-                  )
+                ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
                 : null,
           );
           return false;
@@ -393,9 +388,10 @@ class _VoiceScreenState extends State<VoiceScreen> {
       // On macOS this triggers the system permission prompt on first use.
       // A timeout matters: if the prompt never resolves we must not leave
       // `_starting` latched, which would make every later tap a no-op.
-      final granted = await _recorder
-          .hasPermission()
-          .timeout(const Duration(seconds: 20), onTimeout: () => false);
+      final granted = await _recorder.hasPermission().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => false,
+      );
       if (!granted) {
         if (mounted) {
           setState(
@@ -407,7 +403,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
         return false;
       }
     } catch (e) {
-      if (mounted) setState(() => _turnError = 'Could not access the microphone: $e');
+      if (mounted) {
+        setState(() => _turnError = 'Could not access the microphone: $e');
+      }
       return false;
     }
     return true;
@@ -707,7 +705,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
       if (!mounted) return;
       unawaited(
         _recoverToIdle(
-          reason: reason ??
+          reason:
+              reason ??
               'The turn stopped responding after '
                   '${_turnStallTimeout.inSeconds}s and was cancelled. '
                   'Tap to try again.',
@@ -865,7 +864,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
               child: ModeToggle(
                 mode: _mode,
                 // Changing mode mid-turn would cut the model off mid-sentence.
-                enabled: _stage == VoiceStage.idle ||
+                enabled:
+                    _stage == VoiceStage.idle ||
                     _stage == VoiceStage.armed ||
                     _stage == VoiceStage.recording,
                 onChanged: _setMode,
@@ -891,15 +891,28 @@ class _VoiceScreenState extends State<VoiceScreen> {
   }
 
   Widget _body() {
-    final busy = _stage == VoiceStage.transcribing ||
+    final busy =
+        _stage == VoiceStage.transcribing ||
         _stage == VoiceStage.thinking ||
         _stage == VoiceStage.speaking;
+    // Padding, not a constrained box: a scroll view inside a narrow box puts
+    // its scrollbar in the middle of a wide window.
+    final inset = pageInset(
+      MediaQuery.sizeOf(context).width,
+      medium: 760,
+      expanded: 960,
+      gutter: 20,
+    );
     return Column(
       children: [
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          // Centred in whatever height is left, so a two-line exchange
+          // doesn't sit at the top of a full-screen window with a metre of
+          // nothing under it.
+          child: CentredScrollView(
+            padding: EdgeInsets.fromLTRB(inset, 8, inset, 20),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 PipelineBar(stage: _stage),
@@ -922,7 +935,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
                   ),
                 if (_transcript != null)
                   VoicePanel(
-                    label: 'YOU SAID',
+                    label: 'You said',
                     color: AppColors.voice,
                     child: Text(
                       _transcript!.trim().isEmpty
@@ -939,22 +952,22 @@ class _VoiceScreenState extends State<VoiceScreen> {
                   Gap.md,
                   VoicePanel(
                     label: _stage == VoiceStage.speaking
-                        ? 'GEMMA IS SAYING'
-                        : 'GEMMA REPLIED',
-                    color: AppColors.accent,
+                        ? 'Gemma is saying'
+                        : 'Gemma replied',
+                    color: AppColors.accentBright,
                     child: SpokenText(full: _reply, spoken: _spoken),
                   ),
                 ],
                 if (_turnError != null) ...[
                   Gap.md,
                   VoicePanel(
-                    label: 'ERROR',
+                    label: 'Something went wrong',
                     color: AppColors.danger,
                     child: Text(
                       _turnError!,
                       style: const TextStyle(
                         color: AppColors.danger,
-                        fontSize: 14,
+                        fontSize: 15,
                         height: 1.4,
                       ),
                     ),
@@ -970,8 +983,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
           level: _level,
           preparing: _preparing,
           quietProgress: _quietProgress,
-          onSensitivityChanged: (db) =>
-              setState(() => _vad.thresholdDb = db),
+          onSensitivityChanged: (db) => setState(() => _vad.thresholdDb = db),
           triggerDb: _vad.triggerDb,
           elapsed: _elapsed,
           maxDuration: _maxRecording,

@@ -35,8 +35,21 @@ class SentenceChunker {
 
   /// Titles and abbreviations whose full stop does not end a sentence.
   static const _abbreviations = {
-    'mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'jr', 'st',
-    'e.g', 'i.e', 'etc', 'vs', 'approx', 'no', 'fig',
+    'mr',
+    'mrs',
+    'ms',
+    'dr',
+    'prof',
+    'sr',
+    'jr',
+    'st',
+    'e.g',
+    'i.e',
+    'etc',
+    'vs',
+    'approx',
+    'no',
+    'fig',
   };
 
   /// Push a streamed token. Returns any sentences that are now complete.

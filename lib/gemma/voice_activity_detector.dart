@@ -98,8 +98,10 @@ class VoiceActivityDetector {
   /// How far through the end-of-turn pause we are, 0..1, for the UI.
   double get quietProgress {
     if (!_speechStarted || silenceToEnd.inMicroseconds == 0) return 0;
-    return (_quietFor.inMicroseconds / silenceToEnd.inMicroseconds)
-        .clamp(0.0, 1.0);
+    return (_quietFor.inMicroseconds / silenceToEnd.inMicroseconds).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   /// Feed one level sample. [duration] is how much audio it represents.
