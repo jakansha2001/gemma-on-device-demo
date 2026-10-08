@@ -125,17 +125,22 @@ abstract final class Models {
   static const maxRecordingSeconds = 25;
 
   // --- Text-to-speech -----------------------------------------------------
-  // Matcha-TTS, 22050 Hz, ~94 MB.
+  // Inflect-Nano-v2, 24000 Hz, ~8 MB of its own weights.
   //
-  // We started on Inflect-Nano-v2 (8 MB, ~90x real-time) because it is tiny
-  // and fast. In testing its speech came out unintelligible — described as
-  // "some other language". Matcha is the better-trodden path: it is the
-  // example app's default and the one the package documents as working
-  // end-to-end (a 3-graph pipeline: encoder -> CFM decoder -> HiFi-GAN
-  // vocoder). Worth the extra 86 MB for a demo that has to work on stage.
+  // We shipped Matcha first: Inflect's speech was unintelligible back then,
+  // and Matcha was the documented, better-trodden path. flutter_edge_ai_speech
+  // 0.5.2 fixed Inflect ("the encoder now gets the blank tokens it was
+  // trained with"), and on this machine the difference is the whole voice
+  // demo: synthesizing one 4.8-second sentence took Matcha 15.8 s (0.3x
+  // real-time) and Inflect 0.6 s (7.2x real-time), with both samples
+  // transcribed back word-perfect by Whisper.
+  //
+  // Inflect is English-only, which is what the voice loop pins anyway, and it
+  // reuses Matcha's four G2P (pronunciation) files — the installer fetches
+  // those from the Matcha repo, so only the two Inflect graphs are new.
   static const ttsBaseUrl =
-      'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
-  static const ttsModelType = TtsModelType.matcha;
-  static const ttsDisplayName = 'Matcha-TTS';
-  static const ttsSize = '94 MB';
+      'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
+  static const ttsModelType = TtsModelType.inflect;
+  static const ttsDisplayName = 'Inflect-Nano';
+  static const ttsSize = '35 MB';
 }
