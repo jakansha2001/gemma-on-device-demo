@@ -113,14 +113,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
-  dart_sentencepiece_tokenizer:
-    dependency: transitive
-    description:
-      name: dart_sentencepiece_tokenizer
-      sha256: "23fd14a3a7a736e0a85c329ab0227f8eaf9626ef83b1d98b6f37fbc284fca8c8"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.4.1"
   dbus:
     dependency: transitive
     description:
@@ -214,38 +206,30 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_gemma:
+  flutter_edge_ai:
     dependency: "direct main"
     description:
-      name: flutter_gemma
-      sha256: c169fbb75b444fe099e9b9fe33bcdf4ba8128c0d9c96459c38c2aab4510c4262
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.8.0"
-  flutter_gemma_embeddings:
-    dependency: transitive
-    description:
-      name: flutter_gemma_embeddings
-      sha256: "05856544fe015812a59f93f215455a04e7c8c1d05f76a3fe58ecb98811149d51"
+      name: flutter_edge_ai
+      sha256: b3071e204e43097ca124b49f65bece45617c5d43591b21d4ee9a01f1d30f5155
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
-  flutter_gemma_litertlm:
+  flutter_edge_ai_litertlm:
     dependency: "direct main"
     description:
-      name: flutter_gemma_litertlm
-      sha256: "6926612c00ade0e5c79b66a92d302567565991901596c0baddd03be98d711f89"
+      name: flutter_edge_ai_litertlm
+      sha256: "06141f5956d445a00ad7af6d33bec90d37998917c13fab6893dc42eb525f4056"
       url: "https://pub.dev"
     source: hosted
-    version: "1.6.3"
-  flutter_gemma_speech:
+    version: "1.10.1"
+  flutter_edge_ai_speech:
     dependency: "direct main"
     description:
-      name: flutter_gemma_speech
-      sha256: "0c87240b113ddaea4135ff86159556b3110c22f417339b3ddf093e478a46c31e"
+      name: flutter_edge_ai_speech
+      sha256: aaa640c1b3675659e84c6c923703ba538ea709e3eea9a89a4d1bd0522cc02b52
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.0"
+    version: "0.5.4"
   flutter_lints:
     dependency: "direct dev"
     description:

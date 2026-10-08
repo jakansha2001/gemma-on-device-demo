@@ -20,11 +20,11 @@ dependencies:
   # ships and wire them in FlutterGemma.initialize(). We ship exactly one
   # format (.litertlm), which covers Android + iOS + macOS from a single model
   # file — so no flutter_gemma_mediapipe, and no MediaPipe native weight.
-  flutter_gemma: ^1.8.0
-  flutter_gemma_litertlm: ^1.6.3
+  flutter_edge_ai: ^2.1.1
+  flutter_edge_ai_litertlm: ^1.10.1
   # STT + TTS + the VoiceSession loop. Native only; rides on litertlm's
   # bundled native library, so it adds no second copy of libLiteRtLm.
-  flutter_gemma_speech: ^0.5.0
+  flutter_edge_ai_speech: ^0.5.4
 
   # Renders the model's markdown. `flutter_markdown` is discontinued as of
   # 2025; gpt_markdown is actively maintained and built for LLM output, which

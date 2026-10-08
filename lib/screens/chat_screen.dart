@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:gemma_vision_demo/gemma/gemma_failure.dart';
 import 'package:gemma_vision_demo/gemma/gemma_service.dart';
 import 'package:gemma_vision_demo/gemma/model_catalog.dart';
@@ -16,7 +16,7 @@ import 'package:image_picker/image_picker.dart';
 
 /// Streaming chat with an optional image attachment.
 ///
-/// With [thinking] on, the same weights run with `isThinking: true` and the
+/// With [thinking] on, the same weights run with `enableThinking: true` and the
 /// stream starts emitting [ThinkingResponse] alongside [TextResponse] — the
 /// model's scratchpad, rendered in its own collapsible block.
 class ChatScreen extends StatefulWidget {
@@ -64,7 +64,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // only opens a fresh conversation on top of them.
       final chat = await GemmaService.instance.openChat(
         supportImage: true,
-        isThinking: widget.thinking,
+        enableThinking: widget.thinking,
         systemInstruction: widget.thinking
             // Do not tell a thinking model to be brief — that fights the
             // reasoning we are trying to show off. But DO pin the language:

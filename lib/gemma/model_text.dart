@@ -13,7 +13,7 @@
 /// is classified as plain text and passed through whole, JSON and all. The
 /// tool still executes correctly; this is purely what the user ends up
 /// reading. The same happens with `<|channel>thought…<channel|>` reasoning
-/// markers when a chat was not opened with `isThinking: true`.
+/// markers when a chat was not opened with `enableThinking: true`.
 ///
 /// So: never trust the text channel to be clean, and sanitize the ACCUMULATED
 /// buffer rather than individual tokens — a marker can be split across two

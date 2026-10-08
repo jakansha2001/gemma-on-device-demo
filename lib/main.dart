@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 import 'package:gemma_vision_demo/screens/home_screen.dart';
 import 'package:gemma_vision_demo/theme.dart';
 
@@ -15,7 +15,7 @@ Future<void> main() async {
   //
   // We register one engine (.litertlm, via dart:ffi) plus the speech backends.
   // There is no MediaPipeEngine here because we ship no .task models.
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     inferenceEngines: const [LiteRtLmEngine()],
     sttBackends: const [LiteRtSttBackend()],
     ttsBackends: const [LiteRtTtsBackend()],
@@ -26,7 +26,7 @@ Future<void> main() async {
 
   // Set to `verbose` to watch prompts and generated tokens in the console
   // while debugging. Release builds are silent no matter what this says.
-  FlutterGemma.logLevel = GemmaLogLevel.info;
+  FlutterEdgeAi.logLevel = EdgeAiLogLevel.info;
 
   runApp(const GemmaDemoApp());
 }

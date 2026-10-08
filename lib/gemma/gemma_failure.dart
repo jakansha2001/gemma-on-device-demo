@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:gemma_vision_demo/theme.dart';
 
 /// Everything that can go wrong, normalised into something showable.

@@ -5,8 +5,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 import 'package:gemma_vision_demo/gemma/gemma_failure.dart';
 import 'package:gemma_vision_demo/gemma/gemma_service.dart';
 import 'package:gemma_vision_demo/gemma/model_catalog.dart';
@@ -218,7 +218,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
     try {
       // --- 1. Speech-to-text. Needs two files: model + tokenizer. ---------
       _setStage('Downloading ${Models.sttDisplayName} · ${Models.sttSize}');
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(Models.sttModelUrl)
           .tokenizerFromNetwork(Models.sttTokenizerUrl)
           .ofType(Models.sttModelType)
@@ -232,13 +232,13 @@ class _VoiceScreenState extends State<VoiceScreen> {
       // Pin the output language. Whisper is multilingual and will otherwise
       // drift — it can render English speech into another language. This is
       // a per-call knob (flutter_gemma 1.8.0): it never reloads the model.
-      recognizer = await FlutterGemma.getActiveStt(
+      recognizer = await FlutterEdgeAi.getActiveStt(
         language: Models.sttLanguage,
       );
 
       // --- 2. Text-to-speech. One base URL; the bundle is fetched from it. -
       _setStage('Downloading ${Models.ttsDisplayName} · ${Models.ttsSize}');
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(Models.ttsBaseUrl)
           .ofType(Models.ttsModelType)
           .withProgress(_setPercent)
@@ -247,7 +247,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         await closePartial();
         return;
       }
-      synth = await FlutterGemma.getActiveTts();
+      synth = await FlutterEdgeAi.getActiveTts();
 
       // --- 3. The LLM in the middle. -------------------------------------
       _setStage('Loading ${Models.llmDisplayName}');
