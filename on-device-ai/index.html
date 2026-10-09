@@ -21,29 +21,33 @@
  "Gemma 4 comes in five sizes today. (There were four at launch in April. The 12B was added later.) The two on the left, E2B and E4B, are meant for phones, laptops and browsers. They have a 128K-token context and accept text, images and audio. The E stands for \"effective\". Per-Layer Embeddings keep their working memory close to that of a much smaller model. We're using E2B. (Don't spend long on the right-hand column.)",
  "Five terms, and you'll be able to follow the rest of the talk. Parameters are the numbers the model learns during training. You'll also hear them called weights. Tokens are the small chunks of text it reads and writes. Context is how many tokens it can keep in mind at once. E2B supports 128K, but the on-device build we use supports up to 32K, which matters when you plan a feature. Quantization means storing the weights with fewer bits. Our file mixes 2-, 4- and 8-bit weights and comes to about 2.6 GB. And inference is simply running the model to get an answer.",
  "(Step forward for this one.) In 2024, the smallest Gemma could only read text. Today, Gemma 4 E2B, the model in my demo, has 2.3 billion effective parameters, and it runs on a phone. It understands text, images and audio, and it was pre-trained on more than 140 languages. (Pause.) And it's quick. On an iPhone 17 Pro it starts replying in about a third of a second and writes 56.5 tokens a second. A token is a small piece of a word, so that's much faster than anyone can read. (Point at the cards.) You get similar speeds on a recent Android flagship, and an M4 Max MacBook Pro is nearly three times faster. These are Google's published numbers from the model card, so your own app will vary. (If asked about languages: Google says 35+ languages work out of the box, and it was pre-trained on 140+.)",
+ "So the model exists and it's fast enough. Who actually needs it on the device? Four examples, and the right-hand side is the reason each one cannot simply call an API. Healthcare: summarising a consultation while it happens, because patient notes are not allowed to reach someone else's server. Field work: the technician is in a basement, on a rig, on a plane — there is no signal where the work is. Banking: reading an ID or a claim form from a photo, where the document never has to leave the customer's phone. Accessibility: describing what the camera is pointed at, which has to answer in the moment, on any connection. (Then move straight on to how it works.)",
  "So how does a Flutter app actually run this?",
- "Here's the whole stack, and all of it lives on the device. At the top is your Flutter app. Below it is flutter_gemma, the package you add, which handles models, chats and downloads. Then the LiteRT-LM engine package, which talks to the runtime through dart:ffi. Then LiteRT-LM itself, Google's runtime that also powers on-device AI in Chrome, Chromebook Plus and Pixel Watch. And at the bottom, the hardware. The good news is that you only write the top layer.",
- "With 1.0, flutter_gemma was split into a small core and a set of optional packages. The green ones are what the demo uses: the core, the LiteRT-LM engine and speech. Every engine brings its own native libraries, so this keeps your app from shipping code it never uses. One warning from experience: the core doesn't register an engine by itself. If you forget to add one, everything compiles, and then it fails the first time you load a model.",
- "You'll come across two model formats. .task is MediaPipe's format. It works on mobile and web, but not on desktop. .litertlm is the LiteRT-LM format, and it runs everywhere. In practice, the demo ships one model file and one engine, and the same code runs on Android, iOS and macOS.",
+ "Here's the whole stack, and all of it lives on the device. At the top is your Flutter app. Below it is flutter_edge_ai, the package you add, which handles models, chats and downloads. Then the LiteRT-LM engine package, which talks to the runtime through dart:ffi. Then LiteRT-LM itself, Google's runtime that also powers on-device AI in Chrome, Chromebook Plus and Pixel Watch. And at the bottom, the hardware. The good news is that you only write the top layer.",
+ "flutter_edge_ai is a small core plus a set of optional packages. The green ones are what the demo uses: the core, the LiteRT-LM engine and speech. Every engine brings its own native libraries, so this keeps your app from shipping code it never uses. One warning from experience: the core doesn't register an engine by itself. If you forget to add one, everything compiles, and then it fails the first time you load a model. (If someone asks why they remember a different name: this package used to be called flutter_gemma. Same package, same author, renamed — and `dart fix --apply` renames the old symbols in your code.)",
+ "Everything I am about to show runs Gemma 4, but this is not a Gemma-only package. (Left.) If you need tiny: SmolLM at 135 MB, LFM2.5 at 168 MB, and FunctionGemma at 284 MB, which exists only to call your functions. (Middle.) If you need reasoning or tools: Qwen3 0.6B at 586 MB streams its thinking, DeepSeek R1 does the same, and Phi-4 Mini is there if you have the space. (Right.) Three vision models, from 360 MB. (Yellow card.) Or skip the download and use the model already in the operating system — with the catch that it is a different model on each platform and the user can switch it off. (Last card.) Switching is the file you install and the ModelType you pass; the rest of the code is identical. Sizes are from the package's model catalogue. (If asked: that DeepSeek R1 1.5B is the R1 distill of Qwen 1.5B.)",
+ "One more thing before the demo. Everything I am about to show runs Gemma 4, but the package is not a Gemma package. (Point at the three columns.) If you need tiny, there is SmolLM at 135 MB or LFM2.5 at 168 MB, and FunctionGemma at 284 MB, which exists only to call your functions. If you need reasoning or tools, Qwen3 0.6B is 586 MB and streams its thinking, and DeepSeek R1 does the same. If you need to look at images, there are three vision models starting at 360 MB. (Point at the yellow card.) Or you skip the download entirely and use the model already in the operating system — Gemini Nano, Apple Foundation Models, Phi Silica — with the catch that it is a different model on each platform and the user can turn it off. (Last card.) Switching is the file you install and the ModelType you pass. The rest of the code does not change. Sizes are from the package's model catalogue.",
  "(Move to the centre of the stage.) That's enough slides. Let me show you the app.",
  "Here's what I built: one Flutter app, one Gemma 4 E2B model, and four things it can do. (Just name them. Each one gets its own clip next.) Vision, thinking, function calling and voice.",
- "(Talk over the clip.) I attach a photo and ask what's in it. The image never leaves the laptop, because Gemma 4 E2B can understand images by itself, and the answer streams in as it's written. (If asked about the \"15× speed\" badge: the wait before the first word is sped up so the clip fits. The answer itself plays at real speed.)",
+ "(Talk over the clip.) I attach a photo and ask what's in it. The image never leaves the laptop, because Gemma 4 E2B can understand images by itself, and the answer streams in as it's written. (If asked about the \"2× speed\" badge: attaching the photo and typing are sped up so the clip fits. The answer itself plays at real speed.)",
  "This one is a trick question. Most people say 0.10, but the answer is 0.05. (Expand the reasoning.) You can watch it work through the maths before it answers. The package gives you this as a separate ThinkingResponse, so you decide how to show it in your UI. (If it gets it wrong live:) And this is exactly why showing the reasoning helps, because you can see where it went wrong.",
  "This is the feature that turns a chatbot into something genuinely useful. (Point at the tool bubbles.) The model decided to call add_task, which is an ordinary Dart function in my app. Then it called list_tasks to read the list back, and only after that did it answer. The model picked the tools and the order. My code just ran them.",
- "(Check the room audio before you move to this slide.) There are three models working together here. Whisper Tiny turns my voice into text, Gemma 4 writes the answer, and Matcha turns that answer back into speech. None of it touches the cloud. (Let the reply finish playing before you speak. The badges mark where the waits are sped up: loading, transcribing and preparing each spoken sentence. Your voice and Gemma's voice play at real speed.)",
+ "(Check the room audio before you move to this slide.) There are three models working together here. Whisper Tiny turns my voice into text, Gemma 4 writes the answer, and Inflect-Nano turns that answer back into speech. None of it touches the cloud. (Let the reply finish playing before you speak. The badges mark where the waits are sped up: loading, transcribing and preparing each spoken sentence. Your voice and Gemma's voice play at real speed.)",
  "(Slow down. This is the moment the whole talk builds up to.) Watch the Wi-Fi icon. (Turn it off.) There's no network at all now. Same prompt, same speed. (Wait a couple of seconds after the answer appears.) And that's really the whole point of this talk.",
- "Now let's look at the code. Everything on the next few slides uses the current flutter_gemma API, and it's the same code that's running in the app you just saw.",
- "You need two packages: the core and the LiteRT-LM engine. Then there's one call in main, where you initialize flutter_gemma and give it the engine. (Point at the highlighted lines.) This is the big 1.0 change, and if you leave it out, the app still compiles. You'll also need Flutter 3.44 or newer. And notice what's gone: the last version of this talk needed a Hugging Face token and a .env file. The Gemma 4 build we use is public, so you don't need either anymore.",
+ "Before the code, here is what was actually running. Three models, and each one does one job. Whisper Tiny, 151 MB, turns my voice into text — it listens in thirty-second windows, which is why the app stops recording at twenty-five seconds. Gemma 4 E2B, 2.6 GB, is the one doing the thinking in every demo you just saw: text and images in, the answer out. Inflect-Nano, 36 MB, turns the answer back into speech — English only, and fast enough that the conversation doesn't stall. (Last line.) About 2.8 GB in total, downloaded once, and after that nothing leaves the device. Now let me show you the code that installs them.",
+ "Now let's look at the code. Everything on the next few slides uses the current flutter_edge_ai API, and it's the same code that's running in the app you just saw.",
+ "You need two packages: the core and the LiteRT-LM engine. Then there's one call in main, where you initialize flutter_edge_ai and give it the engine. (Point at the highlighted lines.) This is the big 1.0 change, and if you leave it out, the app still compiles. You'll also need Flutter 3.44 or newer. And notice what's gone: the last version of this talk needed a Hugging Face token and a .env file. The Gemma 4 build we use is public, so you don't need either anymore.",
  "There are three calls here. installModel downloads the model once, about 2.6 GB, and if the file is already on the device it just marks the model as active. getActiveModel loads it onto the GPU, and createChat starts a conversation. One thing people often mix up: maxTokens is the context window, not the length of the reply. If you want to limit the reply, use maxOutputTokens. (Point at the yellow lines.) Get either of these wrong and the app still compiles, so it's easy to lose a day. I'll come back to them.",
  "First you add the message, then you loop over the response stream. Text tokens build up the answer and thinking tokens build up the reasoning, which is what you saw in the thinking demo. ModelResponse is a sealed class, so the compiler makes you handle every case. And sending an image is just a different kind of message: withImage instead of text.",
  "This has two parts. On the left, you describe the tool: a name, a description and a JSON Schema for its arguments. On the right, generateChatResponseWithTools runs the whole loop for you. You give it one callback, onToolCall, which runs your Dart code and returns a map. The lesson I learned the hard way: don't throw from a tool. A thrown exception ends the stream. Return an error map instead, and the model can read it and apologise or try again.",
  "Most talks only show you the happy path. These are the things that actually broke while I was building this app, so they don't break for you.",
- "When I built this demo, two settings caught me out. (Point at modelType.) The first is modelType. It doesn't pick the model; the model is the file you download. It tells flutter_gemma how to talk to that file. Gemma 4 has its own format, with a built-in way to call tools. If you don't pass ModelType.gemma4 when you open a chat, flutter_gemma falls back to gemmaIt, the setting for older Gemma models. Chat still works, but your tools get pasted into the prompt as plain text, and tool calls can come back as raw JSON instead of running your code. So pass gemma4 when you install the model and when you open the chat. (Point at fileType.) The second is fileType. It decides which engine opens the model: LiteRT-LM for .litertlm files, MediaPipe for .task files. flutter_gemma doesn't look at the file name, and the default is .task, so if you leave it out your model doesn't load. Neither mistake gives you a compile error. You only find out when you run the app. (If asked: IT in gemmaIt means instruction-tuned, the chat version of a model.)",
+ "When I built this demo, two settings caught me out. (Point at modelType.) The first is modelType. It doesn't pick the model; the model is the file you download. It tells flutter_edge_ai how to talk to that file. Gemma 4 has its own format, with a built-in way to call tools. If you don't pass ModelType.gemma4 when you open a chat, flutter_edge_ai falls back to gemmaIt, the setting for older Gemma models. Chat still works, but your tools get pasted into the prompt as plain text, and tool calls can come back as raw JSON instead of running your code. So pass gemma4 when you install the model and when you open the chat. (Point at fileType.) The second is fileType. It decides which engine opens the model: LiteRT-LM for .litertlm files, MediaPipe for .task files. flutter_edge_ai doesn't look at the file name, and the default is .task, so if you leave it out your model doesn't load. Neither mistake gives you a compile error. You only find out when you run the app. (If asked: IT in gemmaIt means instruction-tuned, the chat version of a model.)",
  "openChat gives you separate sessions on one loaded model, so I used it to give every screen its own conversation. Text worked perfectly, and then the first image failed. (Read the error on the right.) On the .litertlm engine, those extra sessions have their history replayed as text whenever the engine switches between them, so they can't hold images. createChat uses the main session, and images work fine there. The fix was changing one method name.",
- "My first voice version felt broken. The text finished appearing, then there were several seconds of silence, and only then did it start speaking. (Point at the top bar.) Text-to-speech takes the whole text and gives back the whole audio, so nothing can play until the model has finished writing. (Point at the bottom.) The fix was to split the reply into sentences as it streams in, and to prepare the next sentence's audio while the current one is playing. Now the voice starts after the first sentence instead of the last. (If asked: flutter_gemma_speech's VoiceSession does this for you. Pass streamAudio: true and it speaks clause by clause while the model is still writing. It was added in version 0.4.3. I built my own sentence splitter before I noticed it; today I'd start with VoiceSession.)",
+ "My first voice turns kept getting cut off mid-sentence, and nothing anywhere said why. (Point at the 5s card.) Speech-to-text models are exported with one fixed window. Moonshine Tiny's is five seconds — it is literally in the filename — and anything past it is thrown away silently. (Point at 30s.) Whisper Tiny gives you thirty seconds, which is what makes a real conversational turn possible, so that is what the demo uses. (Point at the third card.) I cap the recorder at twenty-five seconds and show a countdown, so nobody runs past the window. Shorter audio is padded, so stopping early costs nothing. (If asked: the same applies to whichever model you pick — check the window it was exported with.)",
  "(Read the reply out loud, then point at ソース.) That word is Japanese for \"source\", right in the middle of an English sentence. These models know many languages, and with loose sampling the Japanese word can win over the English one. What helped was tighter sampling, telling the model which language to use, and, for speech, removing characters the English voice can't pronounce. To be honest, it's rarer now, but it still happens. It's a small model.",
+ "And this is not hypothetical. Pixel Recorder summarises your recording with Gemini Nano, and Google says it works with no internet connection. Apple Intelligence rewrites and summarises on a three-billion-parameter model running on the phone. Chrome ships Gemini Nano inside the browser, reachable from JavaScript. And the last one is my favourite: Google AI Edge Gallery is on the Play Store and the App Store, and it runs the same Gemma 4 E2B you watched in my demo. (If someone asks which devices or versions: availability moves between releases — point them at the platform release notes.)",
  "I don't want you to leave thinking cloud AI is finished. On-device wins on privacy, working offline and cost at scale. The cloud wins on the hardest reasoning, keeping your app small, and reaching every device, because on-device needs capable hardware and a download of a few gigabytes. Most real apps will use both: summarise, classify and draft on the device, and send the really hard questions to Gemini.",
- "(People will take photos of this slide, so keep moving.) You need Flutter 3.44 or newer. Add two packages and register the engine. Then the platform setup: iOS 15, arm64 on Android with the OpenCL entries for the GPU, and on macOS a build step that copies the GPU libraries into the app. The flutter_gemma README has the exact snippets. Install the model, no token needed. And then turn off your Wi-Fi.",
+ "(People will take photos of this slide, so keep moving.) You need Flutter 3.44 or newer. Add two packages and register the engine. Then the platform setup: iOS 15, minSdk 30 and arm64 on Android, and on macOS the Podfile step that stages the GPU libraries into the app. flutteredge.ai has the exact snippets. Install the model, no token needed. And then turn off your Wi-Fi.",
  "(Give people a few seconds to scan.) If you want to build this yourself, I've written a codelab. It's 16 steps, about 90 minutes, and it takes you from an empty Flutter project to streaming chat, vision, reasoning and tool calling with Gemma 4 E2B, including the setup for Android, iOS and macOS. No token and no server needed.",
  "(Leave this up for at least ten seconds so people can scan the codes.) Here's the demo app, the package, the docs, the exact model file I used, and my article on why I think on-device AI changes mobile architecture.",
  "(Stand still. Say the first line, pause, then say the second one slowly. Don't add anything after it.)",
@@ -382,7 +386,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">01 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">01 / 43</span></div>
 </section>
 <section data-label="Every AI feature has the same shape">
 <div class="pad">
@@ -406,7 +410,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div class="card p" style="width:430px;height:360px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface-2)"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H7a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 11a4 4 0 0 1-1.5 8z"/></svg></div><div><div class="h3">Someone else's GPU</div><div class="small" style="margin-top:8px;font-size:26px">Runs the model and replies</div></div></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">02 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">02 / 43</span></div>
 </section>
 <section data-label="What the network hop costs">
 <div class="pad">
@@ -419,7 +423,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div class="r d5s"><div class="card" style="display:flex;flex-direction:column;gap:30px;background:var(--surface);height:100%"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="icon-mask-6"><rect width="24" height="24" fill="#fff" stroke="none"/><path d="M3 3l18 18" stroke="#000" stroke-width="4.6"/></mask></defs><g mask="url(#icon-mask-6)"><path d="M1.5 9.3a15 15 0 0 1 21 0"/><path d="M5 12.9a10 10 0 0 1 14 0"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></g><path d="M3 3l18 18"/></svg></div><div class="h3">Availability</div><p class="body" style="font-size:31px">No signal means no feature, whether that's on a flight or on patchy mobile data.</p></div></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">03 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">03 / 43</span></div>
 </section>
 <section data-label="What if there were no hop">
 <div class="pad center" style="align-items:flex-start">
@@ -430,7 +434,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <span class="c-blue">inside</span></span><br>your app?
   </h2>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">04 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">04 / 43</span></div>
 </section>
 <section data-label="Zero hops">
 <div class="pad">
@@ -443,7 +447,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div class="r d5s"><div class="card" style="background:var(--green-lo);display:flex;flex-direction:column;gap:30px;height:100%"><div class="icon-tile" style="background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div><div class="h3">Works offline</div><p class="body" style="font-size:28px;color:var(--ink)">On a flight, in a tunnel or out of coverage, the feature keeps working.</p></div></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">05 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">05 / 43</span></div>
 </section>
 <section data-label="Section · Meet Gemma" class="field yellow">
 <div class="field-shape spin" style="right:-180px;top:-120px;width:980px;height:980px"><svg viewBox="0 0 100 100" style="fill:rgba(32,33,36,.10)"><use href="#sh-cookie12"/></svg></div>
@@ -453,7 +457,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <h2 class="d1 r d1s" style="margin-top:40px">Meet<br>Gemma</h2>
   <p class="lead r d2s" style="color:rgba(32,33,36,.72);margin-top:34px;max-width:900px">Google's family of open models, including the one we'll run on the device today.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">06 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">06 / 43</span></div>
 </section>
 <section data-label="Gemini and Gemma">
 <div class="pad">
@@ -476,7 +480,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">07 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">07 / 43</span></div>
 </section>
 <section data-label="Gemma timeline">
 <div class="pad">
@@ -497,7 +501,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <p class="body ink" style="font-size:30px">Gemma 4 is the <b>first</b> Gemma released under Apache 2.0, an OSI-approved open source licence. Earlier generations used the Gemma Terms of Use.</p>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">08 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">08 / 43</span></div>
 </section>
 <section data-label="Gemma 4 lineup">
 <div class="pad">
@@ -519,13 +523,13 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div class="stack r d3s" style="flex:.95;gap:22px">
       <div class="chip" style="align-self:flex-start"><span class="dot" style="background:var(--ink-3)"></span>Workstations and servers</div>
       <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">12B</div><div class="small" style="font-size:25px">Multimodal</div></div>
-      <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">26B A4B</div><div class="small" style="font-size:25px">Mixture of Experts, 4B active</div></div>
+      <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">26B A4B</div><div class="small" style="font-size:25px">Mixture of Experts, 3.8B active</div></div>
       <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">31B</div><div class="small" style="font-size:25px">Dense</div></div>
       <p class="body" style="font-size:28px;margin-top:6px">256K-token context.</p>
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">09 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">09 / 43</span></div>
 </section>
 <section data-label="Five words">
 <div class="pad">
@@ -540,7 +544,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div style="border-top:2px solid var(--outline)"></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">10 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">10 / 43</span></div>
 </section>
 <section data-label="How far on-device models have come">
 <div class="field-shape spin" style="left:-170px;top:40px;width:740px;height:740px"><svg viewBox="0 0 100 100" style="fill:var(--blue-lo)"><use href="#sh-cookie9"/></svg></div>
@@ -562,7 +566,32 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   </div>
   <p class="small r d4s" style="margin-top:26px">Speeds from the litert-community/gemma-4-E2B-it-litert-lm model card: 1,024-token prompt, 256 generated tokens, 2,048-token context. Parameters and languages from Google's Gemma 4 E2B model card.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">11 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">11 / 43</span></div>
+</section>
+<section data-label="Industries that need it">
+<div class="pad">
+  <p class="kicker r">Who has no other option</p>
+  <h2 class="h1 r d1s">Some apps <span class="c-green">can't use the cloud.</span></h2>
+  <div class="stack" style="margin-top:52px;gap:22px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Healthcare</div><p class="body" style="font-size:27px;margin-top:6px">Summarise a consultation while it happens.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--green);padding-left:32px"><p class="body ink" style="font-size:28px">Patient notes are not allowed to reach someone else's server.</p></div>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Field work</div><p class="body" style="font-size:27px;margin-top:6px">An assistant for the technician on site.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--blue);padding-left:32px"><p class="body ink" style="font-size:28px">Basements, rigs, aircraft, rural roads — there is no signal where the work is.</p></div>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Banking</div><p class="body" style="font-size:27px;margin-top:6px">Read an ID or a claim form from a photo.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--yellow);padding-left:32px"><p class="body ink" style="font-size:28px">The document never has to leave the customer's phone.</p></div>
+    </div>
+    <div class="card r d5s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Accessibility</div><p class="body" style="font-size:27px;margin-top:6px">Describe what the camera is pointed at.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--red);padding-left:32px"><p class="body ink" style="font-size:28px">It has to answer in the moment, even with no connection at all.</p></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">12 / 43</span></div>
 </section>
 <section data-label="Section · How it works" class="field green">
 <div class="field-shape spin" style="right:-220px;top:-160px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-clover8"/></svg></div>
@@ -572,7 +601,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <h2 class="d1 r d1s" style="margin-top:40px">How it<br>works</h2>
   <p class="lead r d2s" style="color:rgba(255,255,255,.82);margin-top:34px;max-width:900px">From your Dart code down to the chip.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">12 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">13 / 43</span></div>
 </section>
 <section data-label="The stack">
 <div class="pad">
@@ -583,8 +612,8 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div style="position:absolute;top:-22px;left:60px;background:var(--bg);padding:0 18px" class="small c-blue">the device</div>
       <div class="stack" style="gap:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--blue-lo)"><div class="h3" style="font-size:38px">Your Flutter app</div><div class="small" style="font-size:25px;color:var(--blue-hi)">Dart and widgets</div></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_gemma</div><div class="small" style="font-size:25px;">models, chats, downloads</div></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_gemma_litertlm</div><div class="small" style="font-size:25px;">the engine, via dart:ffi</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_edge_ai</div><div class="small" style="font-size:25px;">models, chats, downloads</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_edge_ai_litertlm</div><div class="small" style="font-size:25px;">the engine, via dart:ffi</div></div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">LiteRT-LM</div><div class="small" style="font-size:25px;">Google's on-device LLM runtime</div></div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-3)"><div class="h3" style="font-size:38px">CPU · GPU · NPU</div><div class="small" style="font-size:25px;">the hardware</div></div>
       </div>
@@ -596,30 +625,30 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       </div>
       <div class="card" style="background:var(--surface)">
         <div class="h3" style="font-size:36px">Straight from Dart</div>
-        <p class="body" style="font-size:28px;margin-top:12px">Since version 0.14, flutter_gemma talks to the runtime directly from Dart through <code class="code-inline">dart:ffi</code>, on Android, iOS and desktop.</p>
+        <p class="body" style="font-size:28px;margin-top:12px">flutter_edge_ai talks to the runtime straight from Dart through <code class="code-inline">dart:ffi</code>, on Android, iOS and desktop.</p>
       </div>
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">13 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">14 / 43</span></div>
 </section>
-<section data-label="flutter_gemma 1.0 went modular">
+<section data-label="A small core, plus engines">
 <div class="pad">
-  <p class="kicker r">New in flutter_gemma 1.0</p>
+  <p class="kicker r">How the package is put together</p>
   <h2 class="h1 r d1s">A small core, <span class="c-green">plus what you actually use.</span></h2>
   <div class="row" style="margin-top:50px;flex:1;gap:48px">
     <div class="stack r d2s" style="flex:1.3;gap:12px">
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">the core, always needed</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_litertlm</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.litertlm engine: mobile, desktop, web</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_speech</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">speech-to-text and text-to-speech</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_mediapipe</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.task engine: mobile, web</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_rag_sqlite</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">on-device RAG</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_agent</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">agent skills</span></div>
-      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_gemma_onnx</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">ONNX Runtime</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">the core, always needed</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_litertlm</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.litertlm engine: mobile, desktop, web</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_speech</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">speech-to-text and text-to-speech</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_mediapipe</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.task engine: mobile, web</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_rag</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">on-device RAG</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_agent</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">agent skills</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_onnx</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">ONNX Runtime</span></div>
     </div>
     <div class="stack r d3s" style="flex:.7;gap:28px">
       <div class="card" style="background:var(--surface);flex:1">
-        <div class="h3" style="font-size:38px">Why it matters</div>
+        <div class="h3" style="font-size:38px">Why it is split up</div>
         <p class="body" style="font-size:28px;margin-top:14px">Every engine comes with its own native libraries. Splitting them up means your app only ships the ones it uses.</p>
       </div>
       <div class="card" style="background:var(--red-lo)">
@@ -629,7 +658,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">14 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">15 / 43</span></div>
 </section>
 <section data-label="One file, every platform">
 <div class="pad">
@@ -648,7 +677,48 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">15 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">16 / 43</span></div>
+</section>
+<section data-label="Other models">
+<div class="pad">
+  <p class="kicker r">Same code, different weights</p>
+  <h2 class="h1 r d1s">Gemma is one choice, <span class="c-blue">not the only one.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px;margin-top:46px">
+    <div class="card r d2s" style="background:var(--surface);display:flex;flex-direction:column;gap:14px">
+      <div class="h3" style="font-size:32px">Small and quick</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">SmolLM 135M</code><span class="small" style="font-size:23px">135 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">LFM2.5 230M</code><span class="small" style="font-size:23px">168 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">FunctionGemma 270M</code><span class="small" style="font-size:23px">284 MB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">FunctionGemma does one job: it calls your functions.</p>
+    </div>
+    <div class="card r d3s" style="background:var(--blue-lo);display:flex;flex-direction:column;gap:14px">
+      <div class="h3 c-blue" style="font-size:32px">Text, tools, reasoning</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen3 0.6B</code><span class="small" style="font-size:23px">586 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen 2.5 1.5B</code><span class="small" style="font-size:23px">1.6 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">DeepSeek R1 1.5B</code><span class="small" style="font-size:23px">1.7 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Phi-4 Mini</code><span class="small" style="font-size:23px">3.9 GB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">Qwen3 and DeepSeek R1 also stream their reasoning.</p>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;flex-direction:column;gap:14px">
+      <div class="h3" style="font-size:32px">Vision</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">SmolVLM2 500M</code><span class="small" style="font-size:23px">360 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">FastVLM 0.5B</code><span class="small" style="font-size:23px">0.5 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen2-VL 2B</code><span class="small" style="font-size:23px">1.8 GB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">Pick the smallest one that can do the job.</p>
+    </div>
+  </div>
+  <div class="row r d5s" style="margin-top:30px;gap:26px;align-items:stretch">
+    <div class="card" style="flex:1.4;background:var(--yellow-lo)">
+      <div class="h3 c-yellow" style="font-size:32px">Or the model already in the operating system</div>
+      <p class="body ink" style="font-size:26px;margin-top:8px">Gemini Nano on Android, Apple Foundation Models on iOS and macOS, Phi Silica on Windows. Nothing to download — but it is a different model on every platform, and it may be switched off.</p>
+    </div>
+    <div class="card" style="flex:1;background:var(--surface)">
+      <div class="h3" style="font-size:32px">Switching costs two lines</div>
+      <p class="body" style="font-size:26px;margin-top:8px">The file you install, and the <code class="code-inline">ModelType</code> you pass. Everything after that is the same code.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">17 / 43</span></div>
 </section>
 <section data-label="Section · The demo" class="field red">
 <div class="field-shape spin" style="right:-200px;top:-140px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-cookie12"/></svg></div>
@@ -658,7 +728,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <h2 class="d1 r d1s" style="margin-top:40px">Let me<br>show you</h2>
   <p class="lead r d2s" style="color:rgba(255,255,255,.84);margin-top:34px;max-width:900px">One Flutter app running Gemma 4 E2B, entirely on the device.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">16 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">18 / 43</span></div>
 </section>
 <section data-label="What we built">
 <div class="pad">
@@ -668,10 +738,10 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     <div class="r d2s"><div class="card" style="background:var(--blue-lo);display:flex;flex-direction:column;gap:26px;height:100%;padding:48px 44px"><div class="icon-tile" style="background:var(--blue);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="h3" style="font-size:48px">Vision</div><p class="body ink" style="font-size:28px">Show it a photo and ask about it.</p><code style="margin-top:auto;font-size:22px;color:var(--blue-hi)">Message.withImage</code></div></div>
     <div class="r d3s"><div class="card" style="background:var(--yellow-lo);display:flex;flex-direction:column;gap:26px;height:100%;padding:48px 44px"><div class="icon-tile" style="background:var(--yellow);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div><div class="h3" style="font-size:48px">Thinking</div><p class="body ink" style="font-size:28px">See its reasoning before the answer.</p><code style="margin-top:auto;font-size:22px;color:var(--yellow-hi)">ThinkingResponse</code></div></div>
     <div class="r d4s"><div class="card" style="background:var(--green-lo);display:flex;flex-direction:column;gap:26px;height:100%;padding:48px 44px"><div class="icon-tile" style="background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.4-.6-.6-2.4z"/></svg></div><div class="h3" style="font-size:48px">Function calling</div><p class="body ink" style="font-size:28px">It calls your Dart code and uses the result.</p><code style="margin-top:auto;font-size:22px;color:var(--green-hi)">generateChatResponseWithTools</code></div></div>
-    <div class="r d5s"><div class="card" style="background:var(--red-lo);display:flex;flex-direction:column;gap:26px;height:100%;padding:48px 44px"><div class="icon-tile" style="background:var(--red);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4"/><path d="M8 6.5v11"/><path d="M12 3v18"/><path d="M16 7v10"/><path d="M20 10v4"/></svg></div><div class="h3" style="font-size:48px">Voice</div><p class="body ink" style="font-size:28px">Ask out loud and hear the answer.</p><code style="margin-top:auto;font-size:22px;color:var(--red-hi)">flutter_gemma_speech</code></div></div>
+    <div class="r d5s"><div class="card" style="background:var(--red-lo);display:flex;flex-direction:column;gap:26px;height:100%;padding:48px 44px"><div class="icon-tile" style="background:var(--red);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4"/><path d="M8 6.5v11"/><path d="M12 3v18"/><path d="M16 7v10"/><path d="M20 10v4"/></svg></div><div class="h3" style="font-size:48px">Voice</div><p class="body ink" style="font-size:28px">Ask out loud, hear it answer back.</p><code style="margin-top:auto;font-size:22px;color:var(--red-hi)">flutter_edge_ai_speech</code></div></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">17 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">19 / 43</span></div>
 </section>
 <section data-label="Demo · Vision">
 <div class="demo-stage">
@@ -686,7 +756,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div class="demo-prompt-text">“What's in this image?”</div>
     </div>
   </div>
-  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-desktop"><div class="mac-menubar"><b>gemma_vision_demo</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="mac-status"><em class="mac-batt"></em><em class="mac-cc"></em></i></div><div class="mac-app" style="aspect-ratio:1600/1152"><video data-src="assets/demo/vision.mp4" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/vision.mp4</code><p>Vision chat: attach a photo, ask “What's in this image?”, record until the answer finishes. 20–40 s.</p></div></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/vision.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/vision.mp4</code><p>Vision chat: attach a photo, ask “What's in this image?”, record until the answer finishes. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
 </div>
 </section>
 <section data-label="Demo · Thinking">
@@ -702,7 +772,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div class="demo-prompt-text">“If a bat and ball cost 1.10 and the bat costs 1 more than the ball, what does the ball cost?”</div>
     </div>
   </div>
-  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-desktop"><div class="mac-menubar"><b>gemma_vision_demo</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="mac-status"><em class="mac-batt"></em><em class="mac-cc"></em></i></div><div class="mac-app" style="aspect-ratio:1600/1152"><video data-src="assets/demo/thinking.mp4" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/thinking.mp4</code><p>Thinking mode: tap the bat-and-ball suggestion, expand “Reasoning” while it streams. 30–60 s.</p></div></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/thinking.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/thinking.mp4</code><p>Thinking mode: tap the bat-and-ball suggestion, expand “Reasoning” while it streams. 30–60 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
 </div>
 </section>
 <section data-label="Demo · Function calling">
@@ -718,7 +788,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div class="demo-prompt-text">“Add buy milk, then tell me what is on my list”</div>
     </div>
   </div>
-  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-desktop"><div class="mac-menubar"><b>gemma_vision_demo</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="mac-status"><em class="mac-batt"></em><em class="mac-cc"></em></i></div><div class="mac-app" style="aspect-ratio:1600/1152"><video data-src="assets/demo/function-calling.mp4" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/function-calling.mp4</code><p>Function calling: send “Add buy milk, then tell me what's on my list”. Show both tool bubbles and the task strip update. 20–40 s.</p></div></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/function-calling.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/function-calling.mp4</code><p>Function calling: send “Add buy milk, then tell me what's on my list”. Show both tool bubbles and the task strip update. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
 </div>
 </section>
 <section data-label="Demo · Voice">
@@ -734,7 +804,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div class="demo-prompt-text">“Tell me a joke about programmers.”</div>
     </div>
   </div>
-  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-desktop"><div class="mac-menubar"><b>gemma_vision_demo</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="mac-status"><em class="mac-batt"></em><em class="mac-cc"></em></i></div><div class="mac-app" style="aspect-ratio:1600/1196"><video data-src="assets/demo/voice-loop.mp4"  loop playsinline preload="auto" data-audio></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/voice-loop.mp4</code><p>Voice loop, push-to-talk, recorded WITH system audio: ask a short question and let it speak the reply. 20–40 s.</p></div></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/voice-loop.mp4?v=5"  loop playsinline preload="auto" data-audio></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/voice-loop.mp4</code><p>Voice loop, push-to-talk, recorded WITH system audio: ask a short question and let it speak the reply. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
 </div>
 </section>
 <section data-label="Demo · Offline">
@@ -750,8 +820,30 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
       <div class="demo-prompt-text">Wi-Fi goes off in Control Center, then a new prompt.</div>
     </div>
   </div>
-  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/airplane-mode.mp4" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/airplane-mode.mp4</code><p>Turn Wi-Fi off in Control Center on camera, then send a new prompt in Vision or Thinking. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/airplane-mode.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/airplane-mode.mp4</code><p>Turn Wi-Fi off in Control Center on camera, then send a new prompt in Vision or Thinking. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
 </div>
+</section>
+<section data-label="What was running">
+<div class="pad">
+  <p class="kicker r">What you just watched</p>
+  <h2 class="h1 r d1s">Three models, <span class="c-blue">one download each.</span></h2>
+  <div class="stack" style="margin-top:50px;gap:22px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Whisper Tiny</code><p class="small" style="font-size:25px;margin-top:6px">151 MB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">Your voice becomes text. It listens in 30-second windows.</p></div>
+    </div>
+    <div class="card r d3s" style="background:var(--blue-lo);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Gemma 4 E2B</code><p class="small" style="font-size:25px;margin-top:6px">2.6 GB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">Text and images in, the answer out. Every demo you just saw used this one.</p></div>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Inflect-Nano</code><p class="small" style="font-size:25px;margin-top:6px">36 MB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">The answer becomes speech. English only, and fast enough to keep a conversation going.</p></div>
+    </div>
+  </div>
+  <p class="lead r d5s" style="margin-top:40px;font-size:34px">About 2.8 GB in total. <span class="ink">Downloaded once, then nothing leaves the device.</span></p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">25 / 43</span></div>
 </section>
 <section data-label="Section · Build it" class="field blue">
 <div class="field-shape spin" style="right:-220px;top:-160px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-clover8"/></svg></div>
@@ -759,9 +851,9 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
 <div class="pad center">
   <div class="r"><span class="num">04</span></div>
   <h2 class="d1 r d1s" style="margin-top:40px">Build it</h2>
-  <p class="lead r d2s" style="color:rgba(255,255,255,.84);margin-top:34px;max-width:960px">The code behind the demo, using the current flutter_gemma 1.x API.</p>
+  <p class="lead r d2s" style="color:rgba(255,255,255,.84);margin-top:34px;max-width:960px">The code behind the demo, exactly as it runs.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">23 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">26 / 43</span></div>
 </section>
 <section data-label="Code · Setup">
 <div class="pad">
@@ -770,18 +862,18 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <div class="row" style="margin-top:52px;gap:36px;flex:1;align-items:flex-start">
     <div class="stack r d2s" style="flex:.9;gap:28px">
       <pre class="code" style=""><div class="file">pubspec.yaml</div><span class="t">dependencies</span>:
-  <span class="t">flutter_gemma</span>: <span class="n">^1.8.0</span>
-  <span class="t">flutter_gemma_litertlm</span>: <span class="n">^1.6.3</span></pre>
+  <span class="t">flutter_edge_ai</span>: <span class="n">^2.1.1</span>
+  <span class="t">flutter_edge_ai_litertlm</span>: <span class="n">^1.10.1</span></pre>
       <div class="card" style="background:var(--surface)">
         <div class="h3" style="font-size:36px">Toolchain</div>
-        <p class="body" style="font-size:28px;margin-top:10px">flutter_gemma 1.x needs <b class="ink">Flutter 3.44+</b> and <b class="ink">Dart 3.12+</b>, because its native libraries come through Native Assets build hooks.</p>
+        <p class="body" style="font-size:28px;margin-top:10px">flutter_edge_ai needs <b class="ink">Flutter 3.44+</b> and <b class="ink">Dart 3.12+</b>, because its native libraries come through Native Assets build hooks.</p>
       </div>
     </div>
     <div class="stack r d3s" style="flex:1.1;gap:28px">
       <pre class="code" style=""><div class="file">main.dart</div><span class="t">Future</span>&lt;<span class="k">void</span>&gt; <span class="f">main</span>() <span class="k">async</span> {
   <span class="t">WidgetsFlutterBinding</span>.<span class="f">ensureInitialized</span>();
 
-<span class="hl">  <span class="k">await</span> <span class="t">FlutterGemma</span>.<span class="f">initialize</span>(
+<span class="hl">  <span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">initialize</span>(
     inferenceEngines: <span class="k">const</span> [<span class="t">LiteRtLmEngine</span>()],
   );</span>
 
@@ -791,7 +883,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">24 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">27 / 43</span></div>
 </section>
 <section data-label="Code · Install and load">
 <div class="pad">
@@ -799,13 +891,13 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <h2 class="h1 r d1s">Download it once, <span class="c-blue">then load it on the GPU.</span></h2>
   <div class="row" style="margin-top:44px;gap:36px;flex:1;align-items:flex-start">
     <div class="r d2s" style="flex:1.25">
-      <pre class="code" style="font-size:22px"><div class="file">gemma_service.dart</div><span class="k">await</span> <span class="t">FlutterGemma</span>.<span class="f">installModel</span>(
+      <pre class="code" style="font-size:22px"><div class="file">gemma_service.dart</div><span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">installModel</span>(
 <span class="hl-y">  modelType: <span class="t">ModelType</span>.gemma4,
   fileType: <span class="t">ModelFileType</span>.litertlm,</span>
 ).<span class="f">fromNetwork</span>(gemma4E2bUrl).<span class="f">withProgress</span>(onProgress)
  .<span class="f">install</span>();
 
-<span class="k">final</span> model = <span class="k">await</span> <span class="t">FlutterGemma</span>.<span class="f">getActiveModel</span>(
+<span class="k">final</span> model = <span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">getActiveModel</span>(
   maxTokens: <span class="n">4096</span>,
   preferredBackend: <span class="t">PreferredBackend</span>.gpu,
   supportImage: <span class="k">true</span>,
@@ -814,7 +906,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
 <span class="k">final</span> chat = <span class="k">await</span> model.<span class="f">createChat</span>(
   modelType: <span class="t">ModelType</span>.gemma4,
   supportImage: <span class="k">true</span>,
-  isThinking: <span class="k">true</span>,
+  enableThinking: <span class="k">true</span>,
 );</pre>
     </div>
     <div class="stack r d3s" style="flex:.75;gap:24px">
@@ -833,7 +925,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">25 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">28 / 43</span></div>
 </section>
 <section data-label="Code · Stream the reply">
 <div class="pad">
@@ -873,7 +965,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">26 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">29 / 43</span></div>
 </section>
 <section data-label="Code · Function calling">
 <div class="pad">
@@ -915,7 +1007,7 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">27 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">30 / 43</span></div>
 </section>
 <section data-label="Section · What I learned" class="field yellow">
 <div class="field-shape spin" style="right:-180px;top:-120px;width:980px;height:980px"><svg viewBox="0 0 100 100" style="fill:rgba(32,33,36,.10)"><use href="#sh-cookie12"/></svg></div>
@@ -925,13 +1017,13 @@ section[data-deck-active] .spin { animation: spin 60s linear infinite; }
   <h2 class="d1 r d1s" style="margin-top:40px">What broke</h2>
   <p class="lead r d2s" style="color:rgba(32,33,36,.74);margin-top:34px;max-width:980px">The parts most talks skip. All of these happened while I was building this app.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">28 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">31 / 43</span></div>
 </section>
 <section data-label="Lesson · Two defaults">
 <div class="pad">
   <p class="kicker r">Lesson 1</p>
   <h2 class="h1 r d1s">Two settings <span class="c-yellow">you have to get right.</span></h2>
-  <pre class="code" style="margin-top:36px;font-size:27px;padding:26px 50px;flex-shrink:0"><span class="t">FlutterGemma</span>.<span class="f">installModel</span>(
+  <pre class="code" style="margin-top:36px;font-size:27px;padding:26px 50px;flex-shrink:0"><span class="t">FlutterEdgeAi</span>.<span class="f">installModel</span>(
   modelType: <span class="t">ModelType</span>.gemma4,       <span class="cm">// not ModelType.gemmaIt</span>
   fileType: <span class="t">ModelFileType</span>.litertlm, <span class="cm">// defaults to .task if left out</span>
 )
@@ -941,7 +1033,7 @@ model.<span class="f">createChat</span>(
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:30px;flex:1">
     <div class="card r d2s" style="background:var(--surface)">
       <code class="h3" style="font-size:38px;color:var(--yellow-hi)">ModelType.gemma4</code>
-      <p class="body" style="font-size:27px;margin-top:14px">Tells flutter_gemma how to talk to Gemma 4, including its built-in tool calls. It doesn't pick the model; the file does. Leave it out of <code class="code-inline">createChat</code> and it uses <code class="code-inline">gemmaIt</code>, the older Gemma setting, so tools are pasted into the prompt as plain text.</p>
+      <p class="body" style="font-size:27px;margin-top:14px">Tells flutter_edge_ai how to talk to Gemma 4, including its built-in tool calls. It doesn't pick the model; the file does. Leave it out of <code class="code-inline">createChat</code> and it uses <code class="code-inline">gemmaIt</code>, the older Gemma setting, so tools are pasted into the prompt as plain text.</p>
     </div>
     <div class="card r d3s" style="background:var(--surface)">
       <code class="h3" style="font-size:38px;color:var(--yellow-hi)">ModelFileType.litertlm</code>
@@ -949,7 +1041,7 @@ model.<span class="f">createChat</span>(
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">29 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">32 / 43</span></div>
 </section>
 <section data-label="Lesson · Vision needs the primary session">
 <div class="pad">
@@ -974,37 +1066,32 @@ model.<span class="f">createChat</span>(
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">30 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">33 / 43</span></div>
 </section>
-<section data-label="Lesson · Batch speech synthesis">
+<section data-label="Lesson · Speech has a fixed window">
 <div class="pad">
   <p class="kicker r">Lesson 3</p>
-  <h2 class="h1 r d1s">Text-to-speech <span class="c-red">waits for the whole text.</span></h2>
-  <div class="card r d2s" style="margin-top:40px;background:var(--surface);padding:34px 48px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h3" style="font-size:36px">One call for the whole reply</div><div class="small c-red" style="font-size:25px">silence, even though the text is already on screen</div></div>
-    <div style="position:relative;height:54px;margin-top:22px">
-      <div style="position:absolute;left:0%;width:46%;top:0px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Generate the whole reply</div>
-      <div style="position:absolute;left:46.6%;width:24%;top:0px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Synthesize it all</div>
-      <div style="position:absolute;left:71.2%;width:28.8%;top:0px;height:54px;border-radius:16px;background:var(--red);color:#0F1114;display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Speak</div>
+  <h2 class="h1 r d1s">Speech models listen <span class="c-red">for a fixed length.</span></h2>
+  <p class="body r d1s" style="margin-top:26px;font-size:30px;max-width:1500px">My first voice turns were cut off mid-sentence, and nothing in the logs said why. A speech-to-text model is exported with one fixed window. Anything longer than that is dropped, quietly.</p>
+  <div class="row" style="margin-top:44px;gap:32px;flex:1">
+    <div class="card r d2s" style="flex:1;background:var(--red-lo);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">Moonshine Tiny</div>
+      <div class="d1" style="font-size:96px;line-height:1;margin-top:18px;color:var(--red-hi)">5s</div>
+      <p class="body ink" style="font-size:27px;margin-top:20px">The filename says it: <code class="code-inline">moonshine_tiny_5s_f32.tflite</code>. Say a sentence and a half, and only the first five seconds reach the model.</p>
+    </div>
+    <div class="card r d3s" style="flex:1;background:var(--green-lo);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">Whisper Tiny</div>
+      <div class="d1" style="font-size:96px;line-height:1;margin-top:18px;color:var(--green-hi)">30s</div>
+      <p class="body ink" style="font-size:27px;margin-top:20px">A 30-second window, and multilingual. That is what makes a real conversational turn possible, so this is what the demo ships.</p>
+    </div>
+    <div class="card r d4s" style="flex:1.1;background:var(--surface);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">What I do now</div>
+      <p class="body" style="font-size:27px;margin-top:20px">Cap the recorder below the window — mine stops at 25 seconds — and show the countdown while it listens. Short audio is padded, so there is no cost to stopping early.</p>
+      <p class="small" style="font-size:24px;margin-top:auto;color:var(--ink-3)">The same holds for whichever model you pick: read the window it was exported with.</p>
     </div>
   </div>
-  <div class="card r d3s" style="margin-top:20px;background:var(--surface);padding:34px 48px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h3" style="font-size:36px">One call per sentence</div><div class="small c-green" style="font-size:25px">audio starts after the first sentence</div></div>
-    <div style="position:relative;height:190px;margin-top:22px">
-      <div style="position:absolute;left:0%;width:14%;top:0px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Sentence 1</div>
-      <div style="position:absolute;left:14.6%;width:8%;top:0px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">synth</div>
-      <div style="position:absolute;left:23.2%;width:32%;top:0px;height:54px;border-radius:16px;background:var(--green);color:#0F1114;display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Speak 1</div>
-      <div style="position:absolute;left:14.6%;width:14%;top:68px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Sentence 2</div>
-      <div style="position:absolute;left:29.2%;width:8%;top:68px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">synth</div>
-      <div style="position:absolute;left:55.8%;width:26%;top:68px;height:54px;border-radius:16px;background:var(--green);color:#0F1114;display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Speak 2</div>
-      <div style="position:absolute;left:29.2%;width:14%;top:136px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Sentence 3</div>
-      <div style="position:absolute;left:43.8%;width:8%;top:136px;height:54px;border-radius:16px;background:var(--surface-3);color:var(--ink-2);display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">synth</div>
-      <div style="position:absolute;left:82.4%;width:17.6%;top:136px;height:54px;border-radius:16px;background:var(--green);color:#0F1114;display:flex;align-items:center;padding:0 20px;font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden">Speak 3</div>
-    </div>
-  </div>
-  <p class="body r d4s" style="margin-top:30px;font-size:29px"><code class="code-inline">synthesize()</code> takes the full text and returns all the audio at once. So split the reply into sentences as it streams, and prepare the next one while the current one plays.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">31 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">34 / 43</span></div>
 </section>
 <section data-label="Lesson · Small models code-switch">
 <div class="pad">
@@ -1030,7 +1117,32 @@ model.<span class="f">createChat</span>(
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">32 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">35 / 43</span></div>
+</section>
+<section data-label="Shipped products">
+<div class="pad">
+  <p class="kicker r">Not a prototype</p>
+  <h2 class="h1 r d1s">Shipping today, <span class="c-green">on-device.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:56px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Pixel Recorder</div>
+      <p class="body" style="font-size:29px">Summarises your recording with Gemini Nano, with no internet connection.</p>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Apple Intelligence</div>
+      <p class="body" style="font-size:29px">Rewrites and summarises your text on a 3-billion-parameter model, on the phone.</p>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Chrome</div>
+      <p class="body" style="font-size:29px">Gemini Nano built into the browser, reachable from JavaScript.</p>
+    </div>
+    <div class="card r d5s" style="background:var(--green-lo);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Google AI Edge Gallery</div>
+      <p class="body ink" style="font-size:29px">Google’s own app. Download a model, turn off your Wi-Fi, and keep chatting. The same Gemma 4 E2B you just watched is in there.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">36 / 43</span></div>
 </section>
 <section data-label="On-device or cloud">
 <div class="pad">
@@ -1048,25 +1160,25 @@ model.<span class="f">createChat</span>(
     <div style="display:grid;grid-template-columns:.9fr 1.3fr 1.3fr;border-top:2px solid var(--outline)"><div class="h3" style="font-size:32px;padding:24px 0">Device reach</div><div class="body" style="font-size:28px;padding:24px 28px;display:flex;align-items:center;gap:16px;">Needs capable hardware</div><div class="body" style="font-size:28px;padding:24px 28px;display:flex;align-items:center;gap:16px;color:var(--ink);background:var(--blue-lo);border-radius:18px"><span style='width:30px;height:30px;color:var(--blue-hi);flex-shrink:0'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Any device with a network</div></div>
     <div style="border-top:2px solid var(--outline)"></div>
   </div>
-  <p class="lead r d3s" style="margin-top:auto;font-size:36px">Most real apps use both. <span class="ink">Choose based on where each task needs to run.</span></p>
+  <p class="lead r d3s" style="margin-top:auto;font-size:36px">Most real apps use both. <span class="ink">Cloud for the hardest questions, on-device for everything that shouldn’t leave the phone.</span></p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">33 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">37 / 43</span></div>
 </section>
 <section data-label="Get started">
 <div class="pad">
   <p class="kicker r">Your turn</p>
   <h2 class="h1 r d1s">Get it running <span class="c-green">tonight.</span></h2>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:52px">
-    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--blue);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">1</div><div><div class="h3" style="font-size:36px">Flutter 3.44 or newer</div><p class="body" style="font-size:26px;margin-top:8px">flutter_gemma 1.x requires Flutter 3.44+ and Dart 3.12+.</p></div></div></div>
-    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--red);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">2</div><div><div class="h3" style="font-size:36px">Add two packages</div><p class="body" style="font-size:26px;margin-top:8px"><code class="code-inline">flutter pub add flutter_gemma flutter_gemma_litertlm</code></p></div></div></div>
-    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--yellow);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">3</div><div><div class="h3" style="font-size:36px">Register the engine</div><p class="body" style="font-size:26px;margin-top:8px">Call <code class="code-inline">FlutterGemma.initialize(inferenceEngines: …)</code> in <code class="code-inline">main</code>.</p></div></div></div>
-    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--green);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">4</div><div><div class="h3" style="font-size:36px">Platform setup</div><p class="body" style="font-size:26px;margin-top:8px">iOS 15+. Android: arm64, plus OpenCL entries for the GPU. macOS: a build step that copies in the GPU libraries.</p></div></div></div>
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--blue);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">1</div><div><div class="h3" style="font-size:36px">Flutter 3.44 or newer</div><p class="body" style="font-size:26px;margin-top:8px">flutter_edge_ai needs Flutter 3.44+ and Dart 3.12+.</p></div></div></div>
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--red);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">2</div><div><div class="h3" style="font-size:36px">Add two packages</div><p class="body" style="font-size:26px;margin-top:8px"><code class="code-inline">flutter pub add flutter_edge_ai flutter_edge_ai_litertlm</code></p></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--yellow);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">3</div><div><div class="h3" style="font-size:36px">Register the engine</div><p class="body" style="font-size:26px;margin-top:8px">Call <code class="code-inline">FlutterEdgeAi.initialize(inferenceEngines: …)</code> in <code class="code-inline">main</code>.</p></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--green);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">4</div><div><div class="h3" style="font-size:36px">Platform setup</div><p class="body" style="font-size:26px;margin-top:8px">iOS 15+. Android: minSdk 30 and arm64. macOS: Apple Silicon, with Swift Package Manager off and the Podfile step from the docs.</p></div></div></div>
     <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--blue);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">5</div><div><div class="h3" style="font-size:36px">Install Gemma 4 E2B</div><p class="body" style="font-size:26px;margin-top:8px">It's public, so no token. About 2.6 GB, downloaded once.</p></div></div></div>
     <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--red);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">6</div><div><div class="h3" style="font-size:36px">Turn off the Wi‑Fi</div><p class="body" style="font-size:26px;margin-top:8px">It keeps working.</p></div></div></div>
   </div>
   <p class="small r d5s" style="margin-top:auto;font-size:24px">The codelab on the next slide walks through every one of these steps, including the platform setup.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">34 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">38 / 43</span></div>
 </section>
 <section data-label="Codelab">
 <div class="pad">
@@ -1089,21 +1201,21 @@ model.<span class="f">createChat</span>(
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">35 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">39 / 43</span></div>
 </section>
 <section data-label="Resources">
 <div class="pad">
   <p class="kicker r">Scan to open</p>
   <h2 class="h1 r d1s">Everything from this talk.</h2>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-top:56px">
-    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--blue)"><img src="assets/qr/demo.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">The demo app</div><div class="small" style="font-size:19px;margin-top:8px">github.com/<wbr>jakansha2001/<wbr>flutter-gemma-demo</div></div></div></div>
-    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--red)"><img src="assets/qr/flutter_gemma.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">flutter_gemma</div><div class="small" style="font-size:19px;margin-top:8px">pub.dev/<wbr>packages/<wbr>flutter_gemma</div></div></div></div>
-    <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--yellow)"><img src="assets/qr/fluttergemma_docs.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">Docs &amp; guides</div><div class="small" style="font-size:19px;margin-top:8px">fluttergemma.dev</div></div></div></div>
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--blue)"><img src="assets/qr/demo.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">The demo app</div><div class="small" style="font-size:19px;margin-top:8px">github.com/<wbr>jakansha2001/<wbr>gemma-on-device-demo</div></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--red)"><img src="assets/qr/flutter_edge_ai.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">flutter_edge_ai</div><div class="small" style="font-size:19px;margin-top:8px">pub.dev/<wbr>packages/<wbr>flutter_edge_ai</div></div></div></div>
+    <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--yellow)"><img src="assets/qr/flutteredge_docs.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">Docs &amp; guides</div><div class="small" style="font-size:19px;margin-top:8px">flutteredge.ai</div></div></div></div>
     <div class="r d5s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--green)"><img src="assets/qr/gemma4_model.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">Gemma 4 E2B</div><div class="small" style="font-size:19px;margin-top:8px">huggingface.co/<wbr>litert-community</div></div></div></div>
     <div class="r d6s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--blue)"><img src="assets/qr/article.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">My article</div><div class="small" style="font-size:19px;margin-top:8px">Why I think on-device AI changes mobile architecture</div></div></div></div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">36 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">40 / 43</span></div>
 </section>
 <section data-label="The one sentence">
 <div class="field-shape spin" style="right:-260px;bottom:-320px;width:1100px;height:1100px"><svg viewBox="0 0 100 100" style="fill:var(--surface)"><use href="#sh-cookie12"/></svg></div>
@@ -1111,7 +1223,7 @@ model.<span class="f">createChat</span>(
   <p class="lead r" style="font-size:52px">On-device AI isn't replacing cloud AI.</p>
   <p class="r d1s" style="font-size:96px;line-height:1.06;font-weight:650;letter-spacing:-.03em;margin:34px 0 0;max-width:1560px">It's unlocking a different class of app — one that's <span class="c-red">private</span>, <span class="c-green">offline-capable</span>, and <span class="c-yellow">free to scale</span>.</p>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">37 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">41 / 43</span></div>
 </section>
 <section data-label="Thank you">
 <div class="pad">
@@ -1139,7 +1251,7 @@ model.<span class="f">createChat</span>(
     </div>
   </div>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">38 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">42 / 43</span></div>
 </section>
 <section data-label="Questions" class="field blue">
 <div class="field-shape spin" style="left:50%;top:50%;width:1300px;height:1300px;margin:-650px 0 0 -650px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-cookie12"/></svg></div>
@@ -1148,7 +1260,7 @@ model.<span class="f">createChat</span>(
 <div class="pad center" style="align-items:center;text-align:center">
   <h2 class="r" style="font-size:250px;line-height:.9;font-weight:700;letter-spacing:-.03em;margin:0;font-variation-settings:'ROND' 100">Questions?</h2>
 </div>
-<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">39 / 39</span></div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">43 / 43</span></div>
 </section>
 </deck-stage>
 

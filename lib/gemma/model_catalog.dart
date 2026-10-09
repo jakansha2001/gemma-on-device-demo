@@ -1,21 +1,21 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Every model the demo installs, in one place.
 ///
-/// The headline change from v1: the LLM is **Gemma 4 E2B in `.litertlm`
-/// format**, published by `litert-community`. Two consequences worth calling
-/// out on stage:
+/// The headline change from the first version of this talk: the LLM is
+/// **Gemma 4 E2B in `.litertlm` format**, published by `litert-community`.
+/// Two consequences worth calling out on stage:
 ///
-///  * **No Hugging Face token.** v1 used `google/gemma-3n-E2B-it-litert-preview`,
-///    a gated repo — the download 401s until you accept a licence and ship a
-///    token in the app. This repo is public, so the `.env` file, the
-///    `flutter_dotenv` dependency and the whole "get a token first" setup step
-///    are gone.
+///  * **No Hugging Face token.** It used to be
+///    `google/gemma-3n-E2B-it-litert-preview`, a gated repo — the download
+///    401s until you accept a licence and ship a token in the app. This repo
+///    is public, so the `.env` file, the `flutter_dotenv` dependency and the
+///    whole "get a token first" setup step are gone.
 ///  * **One file, three platforms.** `.litertlm` runs on Android, iOS *and*
 ///    desktop through the same `dart:ffi` LiteRT-LM engine. The older `.task`
 ///    format is MediaPipe-only and cannot load on desktop at all, which is why
-///    this app depends on `flutter_gemma_litertlm` and not
-///    `flutter_gemma_mediapipe`.
+///    this app depends on `flutter_edge_ai_litertlm` and not
+///    `flutter_edge_ai_mediapipe`.
 abstract final class Models {
   // --- The LLM ------------------------------------------------------------
   static const llmUrl =
@@ -115,8 +115,8 @@ abstract final class Models {
   ///
   /// This controls what the model WRITES, not what it hears: left to drift it
   /// can transcribe English audio into another language, or translate. Passing
-  /// it to `getActiveStt(language:)` (new in flutter_gemma 1.8.0) is a
-  /// per-call knob — changing it never reloads the model.
+  /// it to `getActiveStt(language:)` is a per-call knob — changing it never
+  /// reloads the model.
   static const sttLanguage = 'en';
 
   /// The recording cap, kept under Whisper's 30s graph with headroom for the
@@ -125,17 +125,22 @@ abstract final class Models {
   static const maxRecordingSeconds = 25;
 
   // --- Text-to-speech -----------------------------------------------------
-  // Matcha-TTS, 22050 Hz, ~94 MB.
+  // Inflect-Nano-v2, 24000 Hz, ~8 MB of its own weights.
   //
-  // We started on Inflect-Nano-v2 (8 MB, ~90x real-time) because it is tiny
-  // and fast. In testing its speech came out unintelligible — described as
-  // "some other language". Matcha is the better-trodden path: it is the
-  // example app's default and the one the package documents as working
-  // end-to-end (a 3-graph pipeline: encoder -> CFM decoder -> HiFi-GAN
-  // vocoder). Worth the extra 86 MB for a demo that has to work on stage.
+  // We shipped Matcha first: Inflect's speech was unintelligible back then,
+  // and Matcha was the documented, better-trodden path. flutter_edge_ai_speech
+  // 0.5.2 fixed Inflect ("the encoder now gets the blank tokens it was
+  // trained with"), and on this machine the difference is the whole voice
+  // demo: synthesizing one 4.8-second sentence took Matcha 15.8 s (0.3x
+  // real-time) and Inflect 0.6 s (7.2x real-time), with both samples
+  // transcribed back word-perfect by Whisper.
+  //
+  // Inflect is English-only, which is what the voice loop pins anyway. Its own
+  // two graphs are 8 MB; the rest of the ~36 MB is the shared G2P
+  // (pronunciation) set the installer fetches alongside them.
   static const ttsBaseUrl =
-      'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
-  static const ttsModelType = TtsModelType.matcha;
-  static const ttsDisplayName = 'Matcha-TTS';
-  static const ttsSize = '94 MB';
+      'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
+  static const ttsModelType = TtsModelType.inflect;
+  static const ttsDisplayName = 'Inflect-Nano';
+  static const ttsSize = '36 MB';
 }

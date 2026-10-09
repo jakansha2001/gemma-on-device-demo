@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building On-Device AI Apps with Flutter &amp; Gemma (22 min) — Akansha Jain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wdth,wght,ROND@6..144,25..151,1..1000,0..100&family=Google+Sans+Code:wght@300..800&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<script type="application/json" id="speaker-notes">
+[
+ "(Keep this under 30 seconds.) Hi everyone, I'm Akansha. I'm a senior software engineer at AutoNation, and I help organise Flutter Delhi and FFDG New Delhi. In the next half hour we'll look at AI apps where the model runs on the phone itself, with no server involved. I'll show you a working app, walk you through the code, and tell you about the things that broke while I was building it.",
+ "Think about any AI feature you've built or used recently. Most of them work the same way. Your app sends whatever the user typed, photographed or recorded over the network to a model running on someone else's GPU, and the answer comes back the same way. (Point at the arrows.) That round trip is what I want to question today.",
+ "(One line per card, don't read them out.) That trip to the server costs you in four ways. Latency: the user waits for the network before they see anything. Cost: you pay per token, so the more people use the feature, the bigger the bill. Privacy: whatever the user shared has left their phone. And availability: with no signal, the feature just doesn't work. (Optional) Quick show of hands, who has shipped a feature that stopped working the moment someone went offline?",
+ "(Say it slowly, then pause for about three seconds.) So what if the model lived inside your app? (The circle around \"inside\" is the edge of the device. It shows up again on the architecture slide.)",
+ "So which model can actually run inside an app? Let me introduce Gemma.",
+ "Gemma 4 comes in five sizes today. (There were four at launch in April. The 12B was added later.) The two on the left, E2B and E4B, are meant for phones, laptops and browsers. They have a 128K-token context and accept text, images and audio. The E stands for \"effective\". Per-Layer Embeddings keep their working memory close to that of a much smaller model. We're using E2B. (Don't spend long on the right-hand column.)",
+ "(Step forward for this one.) In 2024, the smallest Gemma could only read text. Today, Gemma 4 E2B, the model in my demo, has 2.3 billion effective parameters, and it runs on a phone. It understands text, images and audio, and it was pre-trained on more than 140 languages. (Pause.) And it's quick. On an iPhone 17 Pro it starts replying in about a third of a second and writes 56.5 tokens a second. A token is a small piece of a word, so that's much faster than anyone can read. (Point at the cards.) You get similar speeds on a recent Android flagship, and an M4 Max MacBook Pro is nearly three times faster. These are Google's published numbers from the model card, so your own app will vary. (If asked about languages: Google says 35+ languages work out of the box, and it was pre-trained on 140+.)",
+ "So the model exists and it's fast enough. Who actually needs it on the device? Four examples, and the right-hand side is the reason each one cannot simply call an API. Healthcare: summarising a consultation while it happens, because patient notes are not allowed to reach someone else's server. Field work: the technician is in a basement, on a rig, on a plane — there is no signal where the work is. Banking: reading an ID or a claim form from a photo, where the document never has to leave the customer's phone. Accessibility: describing what the camera is pointed at, which has to answer in the moment, on any connection. (Then move straight on to how it works.)",
+ "So how does a Flutter app actually run this?",
+ "Here's the whole stack, and all of it lives on the device. At the top is your Flutter app. Below it is flutter_edge_ai, the package you add, which handles models, chats and downloads. Then the LiteRT-LM engine package, which talks to the runtime through dart:ffi. Then LiteRT-LM itself, Google's runtime that also powers on-device AI in Chrome, Chromebook Plus and Pixel Watch. And at the bottom, the hardware. The good news is that you only write the top layer.",
+ "flutter_edge_ai is a small core plus a set of optional packages. The green ones are what the demo uses: the core, the LiteRT-LM engine and speech. Every engine brings its own native libraries, so this keeps your app from shipping code it never uses. One warning from experience: the core doesn't register an engine by itself. If you forget to add one, everything compiles, and then it fails the first time you load a model. (If someone asks why they remember a different name: this package used to be called flutter_gemma. Same package, same author, renamed — and `dart fix --apply` renames the old symbols in your code.)",
+ "Everything I am about to show runs Gemma 4, but this is not a Gemma-only package. (Left.) If you need tiny: SmolLM at 135 MB, LFM2.5 at 168 MB, and FunctionGemma at 284 MB, which exists only to call your functions. (Middle.) If you need reasoning or tools: Qwen3 0.6B at 586 MB streams its thinking, DeepSeek R1 does the same, and Phi-4 Mini is there if you have the space. (Right.) Three vision models, from 360 MB. (Yellow card.) Or skip the download and use the model already in the operating system — with the catch that it is a different model on each platform and the user can switch it off. (Last card.) Switching is the file you install and the ModelType you pass; the rest of the code is identical. Sizes are from the package's model catalogue. (If asked: that DeepSeek R1 1.5B is the R1 distill of Qwen 1.5B.)",
+ "One more thing before the demo. Everything I am about to show runs Gemma 4, but the package is not a Gemma package. (Point at the three columns.) If you need tiny, there is SmolLM at 135 MB or LFM2.5 at 168 MB, and FunctionGemma at 284 MB, which exists only to call your functions. If you need reasoning or tools, Qwen3 0.6B is 586 MB and streams its thinking, and DeepSeek R1 does the same. If you need to look at images, there are three vision models starting at 360 MB. (Point at the yellow card.) Or you skip the download entirely and use the model already in the operating system — Gemini Nano, Apple Foundation Models, Phi Silica — with the catch that it is a different model on each platform and the user can turn it off. (Last card.) Switching is the file you install and the ModelType you pass. The rest of the code does not change. Sizes are from the package's model catalogue.",
+ "(Move to the centre of the stage.) That's enough slides. Let me show you the app.",
+ "(Talk over the clip.) I attach a photo and ask what's in it. The image never leaves the laptop, because Gemma 4 E2B can understand images by itself, and the answer streams in as it's written. (If asked about the \"2× speed\" badge: attaching the photo and typing are sped up so the clip fits. The answer itself plays at real speed.)",
+ "This one is a trick question. Most people say 0.10, but the answer is 0.05. (Expand the reasoning.) You can watch it work through the maths before it answers. The package gives you this as a separate ThinkingResponse, so you decide how to show it in your UI. (If it gets it wrong live:) And this is exactly why showing the reasoning helps, because you can see where it went wrong.",
+ "This is the feature that turns a chatbot into something genuinely useful. (Point at the tool bubbles.) The model decided to call add_task, which is an ordinary Dart function in my app. Then it called list_tasks to read the list back, and only after that did it answer. The model picked the tools and the order. My code just ran them.",
+ "(Check the room audio before you move to this slide.) There are three models working together here. Whisper Tiny turns my voice into text, Gemma 4 writes the answer, and Inflect-Nano turns that answer back into speech. None of it touches the cloud. (Let the reply finish playing before you speak. The badges mark where the waits are sped up: loading, transcribing and preparing each spoken sentence. Your voice and Gemma's voice play at real speed.)",
+ "(Slow down. This is the moment the whole talk builds up to.) Watch the Wi-Fi icon. (Turn it off.) There's no network at all now. Same prompt, same speed. (Wait a couple of seconds after the answer appears.) And that's really the whole point of this talk.",
+ "Before the code, here is what was actually running. Three models, and each one does one job. Whisper Tiny, 151 MB, turns my voice into text — it listens in thirty-second windows, which is why the app stops recording at twenty-five seconds. Gemma 4 E2B, 2.6 GB, is the one doing the thinking in every demo you just saw: text and images in, the answer out. Inflect-Nano, 36 MB, turns the answer back into speech — English only, and fast enough that the conversation doesn't stall. (Last line.) About 2.8 GB in total, downloaded once, and after that nothing leaves the device. Now let me show you the code that installs them.",
+ "Now let's look at the code. Everything on the next few slides uses the current flutter_edge_ai API, and it's the same code that's running in the app you just saw.",
+ "You need two packages: the core and the LiteRT-LM engine. Then there's one call in main, where you initialize flutter_edge_ai and give it the engine. (Point at the highlighted lines.) This is the big 1.0 change, and if you leave it out, the app still compiles. You'll also need Flutter 3.44 or newer. And notice what's gone: the last version of this talk needed a Hugging Face token and a .env file. The Gemma 4 build we use is public, so you don't need either anymore.",
+ "There are three calls here. installModel downloads the model once, about 2.6 GB, and if the file is already on the device it just marks the model as active. getActiveModel loads it onto the GPU, and createChat starts a conversation. One thing people often mix up: maxTokens is the context window, not the length of the reply. If you want to limit the reply, use maxOutputTokens. (Point at the yellow lines.) Get either of these wrong and the app still compiles — it fails later, when the model loads or when a tool call comes back as plain text. That cost me a day.",
+ "First you add the message, then you loop over the response stream. Text tokens build up the answer and thinking tokens build up the reasoning, which is what you saw in the thinking demo. ModelResponse is a sealed class, so the compiler makes you handle every case. And sending an image is just a different kind of message: withImage instead of text.",
+ "Most talks only show you the happy path. These are the things that actually broke while I was building this app, so they don't break for you.",
+ "My first voice turns kept getting cut off mid-sentence, and nothing anywhere said why. (Point at the 5s card.) Speech-to-text models are exported with one fixed window. Moonshine Tiny's is five seconds — it is literally in the filename — and anything past it is thrown away silently. (Point at 30s.) Whisper Tiny gives you thirty seconds, which is what makes a real conversational turn possible, so that is what the demo uses. (Point at the third card.) I cap the recorder at twenty-five seconds and show a countdown, so nobody runs past the window. Shorter audio is padded, so stopping early costs nothing. (If asked: the same applies to whichever model you pick — check the window it was exported with.)",
+ "(Read the reply out loud, then point at ソース.) That word is Japanese for \"source\", right in the middle of an English sentence. These models know many languages, and with loose sampling the Japanese word can win over the English one. What helped was tighter sampling, telling the model which language to use, and, for speech, removing characters the English voice can't pronounce. To be honest, it's rarer now, but it still happens. It's a small model.",
+ "And this is not hypothetical. Pixel Recorder summarises your recording with Gemini Nano, and Google says it works with no internet connection. Apple Intelligence rewrites and summarises on a three-billion-parameter model running on the phone. Chrome ships Gemini Nano inside the browser, reachable from JavaScript. And the last one is my favourite: Google AI Edge Gallery is on the Play Store and the App Store, and it runs the same Gemma 4 E2B you watched in my demo. (If someone asks which devices or versions: availability moves between releases — point them at the platform release notes.)",
+ "(People will take photos of this slide, so keep moving.) You need Flutter 3.44 or newer. Add two packages and register the engine. Then the platform setup: iOS 15, minSdk 30 and arm64 on Android, and on macOS the Podfile step that stages the GPU libraries into the app. flutteredge.ai has the exact snippets. Install the model, no token needed. And then turn off your Wi-Fi.",
+ "(Give people a few seconds to scan.) If you want to build this yourself, I've written a codelab. It's 16 steps, about 90 minutes, and it takes you from an empty Flutter project to streaming chat, vision, reasoning and tool calling with Gemma 4 E2B, including the setup for Android, iOS and macOS. No token and no server needed.",
+ "(Leave this up for at least ten seconds so people can scan the codes.) Here's the demo app, the package, the docs, the exact model file I used, and my article on why I think on-device AI changes mobile architecture.",
+ "(Stand still. Say the first line, pause, then say the second one slowly. Don't add anything after it.)",
+ "Thank you so much. (Point at the QR codes.) That's my website and my LinkedIn. I'm always happy to chat about Flutter, Gemma, or whatever you're building."
+]
+</script>
+<!--
+  Design tokens and shared components live at the top of the <style> block.
+  Demo recordings are expected in assets/demo/ — each window shows the exact
+  filename and what to record until the file exists.
+-->
+<style>
+/* ==========================================================================
+   Building On-Device AI Apps with Flutter & Gemma — design system
+
+   Direction: Google, specifically Material 3 Expressive. Google Sans Flex for
+   everything set in type, Google Sans Code for code. Google's four brand
+   colours are used SEMANTICALLY — each maps to one idea (a benefit, a demo
+   capability) and holds that meaning for the whole talk — never as random
+   decoration. Section breaks are bold colour fields; content slides sit on a
+   dark neutral so demo video, code and device frames carry the contrast.
+
+   Canvas: 1920 × 1080, scaled by deck-stage.js.
+   ========================================================================== */
+
+:root {
+  /* Neutrals — Google's grey ramp, dark scheme */
+  --bg:        #0F1114;
+  --surface:   #17191D;
+  --surface-2: #1F2227;
+  --surface-3: #292C32;
+  --outline:   rgba(232, 234, 237, 0.10);
+  --outline-2: rgba(232, 234, 237, 0.18);
+  --ink:       #F1F3F4;
+  --ink-2:     #BDC1C6;
+  --ink-3:     #80868B;
+
+  /* Google brand colours, plus their dark-scheme tonal variants */
+  --blue:   #4285F4; --blue-hi:   #8AB4F8; --blue-lo:   #1A2A45; --blue-field:   #1A73E8;
+  --red:    #EA4335; --red-hi:    #F28B82; --red-lo:    #3B1F1D; --red-field:    #D93025;
+  --yellow: #FBBC04; --yellow-hi: #FDD663; --yellow-lo: #3A3116; --yellow-field: #F9AB00;
+  --green:  #34A853; --green-hi:  #81C995; --green-lo:  #1A3223; --green-field:  #188038;
+  --purple-hi: #C58AF9;
+
+  --r-sm: 20px; --r-md: 32px; --r-lg: 48px; --r-xl: 72px; --r-pill: 999px;
+
+  --font: 'Google Sans Flex', 'Google Sans', system-ui, sans-serif;
+  --mono: 'Google Sans Code', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #000; }
+deck-stage { background: var(--bg); }
+
+section {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---------- Layout ---------- */
+.pad    { position: absolute; inset: 0; padding: 92px 110px 110px; display: flex; flex-direction: column; }
+.center { justify-content: center; }
+.row    { display: flex; gap: 72px; }
+.grow   { flex: 1; min-width: 0; }
+.stack  { display: flex; flex-direction: column; }
+
+/* ---------- Type ---------- */
+.kicker {
+  font-size: 30px; font-weight: 500; letter-spacing: -0.005em;
+  color: var(--ink-3); margin: 0 0 22px;
+  display: flex; align-items: center; gap: 16px;
+}
+.kicker .tag { color: var(--ink); }
+.d1 { font-size: 184px; line-height: .9;  font-weight: 700; letter-spacing: -0.028em; margin: 0; font-variation-settings: "wdth" 100, "ROND" 100; }
+.d2 { font-size: 132px; line-height: .94; font-weight: 700; letter-spacing: -0.026em;  margin: 0; font-variation-settings: "ROND" 100; }
+.h1 { font-size: 88px;  line-height: 1;   font-weight: 650; letter-spacing: -0.022em; margin: 0; font-variation-settings: "ROND" 60; }
+.h2 { font-size: 64px;  line-height: 1.04; font-weight: 600; letter-spacing: -0.025em; margin: 0; }
+.h3 { font-size: 44px;  line-height: 1.12; font-weight: 600; letter-spacing: -0.015em; margin: 0; }
+.lead { font-size: 40px; line-height: 1.34; font-weight: 400; color: var(--ink-2); margin: 0; letter-spacing: -0.01em; }
+.body { font-size: 30px; line-height: 1.45; font-weight: 400; color: var(--ink-2); margin: 0; }
+.small { font-size: 24px; line-height: 1.45; color: var(--ink-3); margin: 0; }
+.dim  { color: var(--ink-3); }
+.ink  { color: var(--ink); }
+.nowrap { white-space: nowrap; }
+code, .code-inline { font-family: var(--mono); font-size: .88em; }
+.code-inline { background: var(--surface-3); padding: .06em .32em; border-radius: 10px; color: var(--ink); }
+
+.c-blue   { color: var(--blue-hi); }
+.c-red    { color: var(--red-hi); }
+.c-yellow { color: var(--yellow-hi); }
+.c-green  { color: var(--green-hi); }
+
+/* ---------- Footer: four-colour mark + talk name + page ---------- */
+.foot {
+  position: absolute; left: 110px; right: 110px; bottom: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 22px; color: var(--ink-3); font-weight: 500;
+}
+.foot .mark { display: flex; align-items: center; gap: 14px; }
+/* Event branding (22-minute cut). The logo art has a dark background keyed
+   out, so it only reads correctly on the dark slides — the coloured section
+   dividers skip it. */
+.evt-title { position: absolute; top: 54px; right: 110px; height: 76px; z-index: 5; opacity: .95; }
+.evt-corner { position: absolute; top: 46px; right: 110px; height: 54px; z-index: 5; opacity: .82; }
+.g4 { display: inline-flex; gap: 6px; }
+.g4 i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.g4 i:nth-child(1) { background: var(--blue); }
+.g4 i:nth-child(2) { background: var(--red); }
+.g4 i:nth-child(3) { background: var(--yellow); }
+.g4 i:nth-child(4) { background: var(--green); }
+.foot .pg { font-variant-numeric: tabular-nums; }
+
+/* ---------- Surfaces ---------- */
+.card {
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 48px; position: relative; overflow: hidden;
+}
+.card.tight { padding: 36px 40px; }
+.card.outline { background: transparent; box-shadow: inset 0 0 0 2px var(--outline-2); }
+.tonal-blue   { background: var(--blue-lo); }
+.tonal-red    { background: var(--red-lo); }
+.tonal-yellow { background: var(--yellow-lo); }
+.tonal-green  { background: var(--green-lo); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 56px; padding: 0 26px; border-radius: var(--r-pill);
+  font-size: 26px; font-weight: 500; background: var(--surface-3); color: var(--ink);
+}
+.chip .dot { width: 14px; height: 14px; border-radius: 50%; }
+
+.icon-tile {
+  width: 104px; height: 104px; border-radius: 34px;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.icon-tile svg { width: 54px; height: 54px; }
+
+/* ---------- Colour-field section slides ---------- */
+section.field { color: #fff; }
+section.field.blue   { background: var(--blue-field); }
+section.field.red    { background: var(--red-field); }
+section.field.green  { background: var(--green-field); }
+section.field.yellow { background: var(--yellow-field); color: #202124; }
+section.field .foot { color: rgba(255,255,255,.72); }
+section.field.yellow .foot { color: rgba(32,33,36,.66); }
+section.field .num {
+  font-size: 34px; font-weight: 600; letter-spacing: .01em;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 72px; min-width: 72px; padding: 0 24px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.18);
+}
+section.field.yellow .num { background: rgba(32,33,36,.12); }
+.field-shape { position: absolute; pointer-events: none; }
+.field-shape svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- Code ---------- */
+.code {
+  background: #0A0B0D; border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 2px var(--outline);
+  font-family: var(--mono); font-size: 24px; line-height: 1.5;
+  color: #E8EAED; padding: 36px 44px; margin: 0; white-space: pre;
+  overflow: hidden; position: relative;
+}
+.code .file {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font); font-size: 22px; color: var(--ink-3);
+  margin: -4px 0 16px; font-weight: 500;
+}
+.code .file::before { content: ""; width: 12px; height: 12px; border-radius: 4px; background: var(--blue); }
+.k  { color: #8AB4F8; }            /* keyword  */
+.s  { color: #81C995; }            /* string   */
+.n  { color: #FDD663; }            /* number   */
+.t  { color: #F28B82; }            /* type     */
+.f  { color: #C58AF9; }            /* function */
+.cm { color: #80868B; font-style: italic; }
+/* Full-width highlight rows: inline-block spanning the padded code box, so a
+   multi-line highlight is one even band instead of per-line text slivers. */
+.hl, .hl-y { display: inline-block; width: calc(100% + 88px); margin: 0 -44px; padding: 0 44px; }
+.hl   { background: rgba(138,180,248,.14); box-shadow: inset 5px 0 0 #8AB4F8; }
+.hl-y { background: rgba(253,214,99,.13);  box-shadow: inset 5px 0 0 #FDD663; }
+
+/* ---------- Device window (the demo runs as a macOS app) ---------- */
+.window {
+  border-radius: 26px; overflow: hidden; background: #0A0A0F;
+  box-shadow: 0 0 0 2px var(--outline-2), 0 40px 90px rgba(0,0,0,.55);
+  display: flex; flex-direction: column;
+}
+.window .bar {
+  height: 52px; flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+  padding: 0 20px; background: #1C1E22; position: relative;
+}
+.window .bar i { width: 15px; height: 15px; border-radius: 50%; display: block; }
+.window .bar i:nth-child(1) { background: #FF5F57; }
+.window .bar i:nth-child(2) { background: #FEBC2E; }
+.window .bar i:nth-child(3) { background: #28C840; }
+.window .bar span {
+  position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;
+  font-size: 18px; color: var(--ink-3); font-weight: 500;
+}
+.window .screen { position: relative; flex: 1; background: #0A0A0F; }
+/* contain, not cover: cropping a chat UI hides the very thing being demoed */
+.window video, .window img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Shown until the recording exists — tells you exactly what to capture. */
+.asset-needed {
+  position: absolute; inset: 0; display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px; padding: 48px;
+  text-align: center;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 18px, transparent 18px 36px),
+    #121418;
+}
+.asset-needed.show { display: flex; }
+.asset-needed b { font-size: 30px; font-weight: 600; color: var(--ink); }
+.asset-needed code { font-size: 22px; color: var(--yellow-hi); background: var(--surface-3); padding: 6px 14px; border-radius: 10px; }
+.asset-needed p { font-size: 22px; line-height: 1.45; color: var(--ink-3); margin: 0; max-width: 560px; }
+
+/* ---------- MacBook mockup for the demo recordings ---------- */
+.mac { width: 1040px; position: relative; flex-shrink: 0; }
+.mac-lid {
+  width: 966px; margin: 0 auto; padding: 14px 14px 20px;
+  background: #0c0d0f; border-radius: 34px 34px 12px 12px;
+  box-shadow: 0 0 0 2px #3b3e44, inset 0 0 0 1px #1b1c1f, 0 60px 120px rgba(0,0,0,.55);
+}
+.mac-screen { position: relative; aspect-ratio: 16 / 10; border-radius: 18px 18px 5px 5px; overflow: hidden; background: #000; }
+.mac-notch {
+  position: absolute; top: 0; left: 50%; width: 124px; height: 20px; margin-left: -62px;
+  background: #0c0d0f; border-radius: 0 0 13px 13px; z-index: 6;
+}
+.mac-base {
+  width: 1040px; height: 22px; margin: -1px auto 0; position: relative;
+  background: linear-gradient(#63666c, #3a3c41 45%, #1d1e21);
+  border-radius: 3px 3px 28px 28px / 3px 3px 20px 20px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
+}
+.mac-lip {
+  position: absolute; top: 0; left: 50%; width: 190px; height: 9px; margin-left: -95px;
+  background: linear-gradient(#26272b, #45474c); border-radius: 0 0 14px 14px;
+}
+.mac-full, .mac-desktop { position: absolute; inset: 0; }
+.mac-full video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.mac-desktop {
+  background:
+    radial-gradient(60% 70% at 18% 110%, rgba(66,133,244,.55), transparent 70%),
+    radial-gradient(55% 60% at 92% -10%, rgba(161,66,244,.45), transparent 70%),
+    radial-gradient(40% 45% at 70% 95%, rgba(52,168,83,.25), transparent 70%),
+    linear-gradient(160deg, #10131c, #07080c);
+}
+.mac-menubar {
+  position: absolute; top: 0; left: 0; right: 0; height: 20px; z-index: 2;
+  display: flex; align-items: center; gap: 15px; padding: 0 16px;
+  font-size: 10.5px; color: rgba(255,255,255,.9); background: rgba(8,10,16,.42);
+  font-family: -apple-system, "Google Sans Flex", system-ui, sans-serif; letter-spacing: 0;
+}
+.mac-menubar b { font-weight: 700; }
+.mac-status { margin-left: auto; display: flex; align-items: center; gap: 12px; font-style: normal; }
+.mac-batt { width: 20px; height: 9px; border-radius: 3px; box-shadow: inset 0 0 0 1.2px rgba(255,255,255,.85); position: relative; display: block; }
+.mac-batt::after { content: ""; position: absolute; left: 2px; top: 2px; bottom: 2px; width: 11px; border-radius: 1px; background: rgba(255,255,255,.85); }
+.mac-cc { width: 13px; height: 9px; display: block; border-top: 2px solid rgba(255,255,255,.85); border-bottom: 2px solid rgba(255,255,255,.85); box-sizing: border-box; }
+.mac-app {
+  position: absolute; top: 36px; bottom: 22px; left: 50%; transform: translateX(-50%);
+  border-radius: 10px; overflow: hidden; background: #0A0A0F;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 28px 70px rgba(0,0,0,.65);
+}
+.mac-app video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.mac .asset-needed { gap: 12px; padding: 30px; }
+.mac .asset-needed b { font-size: 24px; }
+.mac .asset-needed code { font-size: 17px; }
+.mac .asset-needed p { font-size: 17px; }
+
+/* Large MacBook for the full-slide demo layout */
+.mac.lg { width: 1480px; }
+.mac.lg .mac-lid { width: 1380px; padding: 16px 16px 22px; border-radius: 40px 40px 14px 14px; }
+.mac.lg .mac-screen { border-radius: 22px 22px 6px 6px; }
+.mac.lg .mac-notch { width: 150px; height: 24px; margin-left: -75px; border-radius: 0 0 15px 15px; }
+.mac.lg .mac-base { width: 1480px; height: 26px; }
+.mac.lg .mac-lip { width: 230px; height: 10px; margin-left: -115px; }
+.mac.lg .mac-menubar { height: 26px; font-size: 13px; gap: 18px; padding: 0 20px; }
+.mac.lg .mac-app { top: 34px; bottom: 10px; border-radius: 12px; }
+
+/* ---------- Demo slides: header row + large MacBook ---------- */
+.demo-stage { position: absolute; inset: 0; padding: 34px 110px 12px; display: flex; flex-direction: column; align-items: center; }
+.demo-head { width: 100%; height: 96px; flex-shrink: 0; display: flex; align-items: center; gap: 22px; }
+.demo-titles { display: flex; flex-direction: column; gap: 4px; }
+.demo-titles .kicker { font-size: 24px; margin: 0; }
+.demo-title { margin: 0; font-size: 54px; line-height: 1.02; font-weight: 650; letter-spacing: -0.02em; white-space: nowrap; font-variation-settings: "ROND" 60; }
+.demo-prompt { margin-left: auto; max-width: 780px; border-radius: 24px; padding: 14px 28px; }
+.demo-prompt .small { font-size: 18px; }
+.demo-prompt-text { font-size: 24px; line-height: 1.3; color: var(--ink); margin-top: 2px; }
+.demo-mac { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+
+/* ---------- Entrance motion (replays on every visit) ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes pop  { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+section[data-deck-active] .r  { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
+section[data-deck-active] .p  { animation: pop  .7s cubic-bezier(.2,.8,.2,1) both; }
+section[data-deck-active] .d1s { animation-delay: .08s; }
+section[data-deck-active] .d2s { animation-delay: .16s; }
+section[data-deck-active] .d3s { animation-delay: .24s; }
+section[data-deck-active] .d4s { animation-delay: .32s; }
+section[data-deck-active] .d5s { animation-delay: .40s; }
+section[data-deck-active] .d6s { animation-delay: .48s; }
+section[data-deck-active] .spin { animation: spin 60s linear infinite; }
+@media print { section .r, section .p { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { section .r, section .p, section .spin { animation: none !important; } }
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="sh-cookie12" viewBox="0 0 100 100"><path d="M98.00,50.00 L97.81,51.25 L97.25,52.48 L96.37,53.65 L95.26,54.76 L94.02,55.80 L92.75,56.77 L91.58,57.71 L90.58,58.63 L89.84,59.57 L89.41,60.56 L89.29,61.64 L89.46,62.82 L89.86,64.11 L90.41,65.51 L91.02,66.99 L91.58,68.51 L91.98,70.03 L92.16,71.48 L92.03,72.82 L91.57,74.00 L90.78,74.99 L89.68,75.77 L88.34,76.35 L86.82,76.75 L85.22,77.03 L83.64,77.24 L82.15,77.46 L80.83,77.76 L79.72,78.21 L78.85,78.85 L78.21,79.72 L77.76,80.83 L77.46,82.15 L77.24,83.64 L77.03,85.22 L76.75,86.82 L76.35,88.34 L75.77,89.68 L74.99,90.78 L74.00,91.57 L72.82,92.03 L71.48,92.16 L70.03,91.98 L68.51,91.58 L66.99,91.02 L65.51,90.41 L64.11,89.86 L62.82,89.46 L61.64,89.29 L60.56,89.41 L59.57,89.84 L58.63,90.58 L57.71,91.58 L56.77,92.75 L55.80,94.02 L54.76,95.26 L53.65,96.37 L52.48,97.25 L51.25,97.81 L50.00,98.00 L48.75,97.81 L47.52,97.25 L46.35,96.37 L45.24,95.26 L44.20,94.02 L43.23,92.75 L42.29,91.58 L41.37,90.58 L40.43,89.84 L39.44,89.41 L38.36,89.29 L37.18,89.46 L35.89,89.86 L34.49,90.41 L33.01,91.02 L31.49,91.58 L29.97,91.98 L28.52,92.16 L27.18,92.03 L26.00,91.57 L25.01,90.78 L24.23,89.68 L23.65,88.34 L23.25,86.82 L22.97,85.22 L22.76,83.64 L22.54,82.15 L22.24,80.83 L21.79,79.72 L21.15,78.85 L20.28,78.21 L19.17,77.76 L17.85,77.46 L16.36,77.24 L14.78,77.03 L13.18,76.75 L11.66,76.35 L10.32,75.77 L9.22,74.99 L8.43,74.00 L7.97,72.82 L7.84,71.48 L8.02,70.03 L8.42,68.51 L8.98,66.99 L9.59,65.51 L10.14,64.11 L10.54,62.82 L10.71,61.64 L10.59,60.56 L10.16,59.57 L9.42,58.63 L8.42,57.71 L7.25,56.77 L5.98,55.80 L4.74,54.76 L3.63,53.65 L2.75,52.48 L2.19,51.25 L2.00,50.00 L2.19,48.75 L2.75,47.52 L3.63,46.35 L4.74,45.24 L5.98,44.20 L7.25,43.23 L8.42,42.29 L9.42,41.37 L10.16,40.43 L10.59,39.44 L10.71,38.36 L10.54,37.18 L10.14,35.89 L9.59,34.49 L8.98,33.01 L8.42,31.49 L8.02,29.97 L7.84,28.52 L7.97,27.18 L8.43,26.00 L9.22,25.01 L10.32,24.23 L11.66,23.65 L13.18,23.25 L14.78,22.97 L16.36,22.76 L17.85,22.54 L19.17,22.24 L20.28,21.79 L21.15,21.15 L21.79,20.28 L22.24,19.17 L22.54,17.85 L22.76,16.36 L22.97,14.78 L23.25,13.18 L23.65,11.66 L24.23,10.32 L25.01,9.22 L26.00,8.43 L27.18,7.97 L28.52,7.84 L29.97,8.02 L31.49,8.42 L33.01,8.98 L34.49,9.59 L35.89,10.14 L37.18,10.54 L38.36,10.71 L39.44,10.59 L40.43,10.16 L41.37,9.42 L42.29,8.42 L43.23,7.25 L44.20,5.98 L45.24,4.74 L46.35,3.63 L47.52,2.75 L48.75,2.19 L50.00,2.00 L51.25,2.19 L52.48,2.75 L53.65,3.63 L54.76,4.74 L55.80,5.98 L56.77,7.25 L57.71,8.42 L58.63,9.42 L59.57,10.16 L60.56,10.59 L61.64,10.71 L62.82,10.54 L64.11,10.14 L65.51,9.59 L66.99,8.98 L68.51,8.42 L70.03,8.02 L71.48,7.84 L72.82,7.97 L74.00,8.43 L74.99,9.22 L75.77,10.32 L76.35,11.66 L76.75,13.18 L77.03,14.78 L77.24,16.36 L77.46,17.85 L77.76,19.17 L78.21,20.28 L78.85,21.15 L79.72,21.79 L80.83,22.24 L82.15,22.54 L83.64,22.76 L85.22,22.97 L86.82,23.25 L88.34,23.65 L89.68,24.23 L90.78,25.01 L91.57,26.00 L92.03,27.18 L92.16,28.52 L91.98,29.97 L91.58,31.49 L91.02,33.01 L90.41,34.49 L89.86,35.89 L89.46,37.18 L89.29,38.36 L89.41,39.44 L89.84,40.43 L90.58,41.37 L91.58,42.29 L92.75,43.23 L94.02,44.20 L95.26,45.24 L96.37,46.35 L97.25,47.52 L97.81,48.75 Z"/></symbol><symbol id="sh-cookie9" viewBox="0 0 100 100"><path d="M98.00,50.00 L97.85,51.25 L97.41,52.48 L96.71,53.68 L95.77,54.81 L94.65,55.88 L93.41,56.88 L92.11,57.80 L90.81,58.67 L89.57,59.50 L88.45,60.30 L87.50,61.11 L86.74,61.94 L86.21,62.82 L85.90,63.78 L85.81,64.83 L85.92,65.99 L86.18,67.26 L86.55,68.62 L86.98,70.08 L87.41,71.60 L87.79,73.16 L88.06,74.72 L88.17,76.23 L88.09,77.67 L87.79,79.00 L87.26,80.17 L86.49,81.16 L85.50,81.96 L84.30,82.55 L82.95,82.95 L81.46,83.16 L79.90,83.21 L78.30,83.14 L76.71,82.99 L75.18,82.82 L73.73,82.67 L72.40,82.59 L71.20,82.64 L70.13,82.85 L69.20,83.26 L68.39,83.86 L67.67,84.68 L67.03,85.70 L66.42,86.89 L65.83,88.21 L65.21,89.63 L64.55,91.08 L63.81,92.50 L62.98,93.83 L62.06,95.01 L61.04,95.99 L59.93,96.72 L58.74,97.18 L57.50,97.35 L56.22,97.23 L54.92,96.83 L53.63,96.17 L52.37,95.32 L51.16,94.31 L50.00,93.20 L48.90,92.07 L47.85,90.96 L46.86,89.96 L45.89,89.10 L44.94,88.43 L43.98,87.99 L43.00,87.77 L41.97,87.79 L40.87,88.03 L39.70,88.45 L38.44,89.02 L37.11,89.67 L35.71,90.37 L34.25,91.03 L32.77,91.61 L31.28,92.04 L29.83,92.29 L28.45,92.30 L27.16,92.07 L26.00,91.57 L24.99,90.81 L24.14,89.82 L23.46,88.61 L22.95,87.23 L22.58,85.73 L22.34,84.16 L22.19,82.56 L22.09,81.00 L21.99,79.52 L21.85,78.15 L21.63,76.92 L21.29,75.85 L20.79,74.95 L20.11,74.20 L19.25,73.60 L18.19,73.11 L16.97,72.70 L15.60,72.34 L14.12,71.99 L12.59,71.60 L11.05,71.15 L9.57,70.60 L8.19,69.94 L6.99,69.15 L5.99,68.23 L5.24,67.18 L4.77,66.02 L4.57,64.76 L4.65,63.43 L4.99,62.06 L5.55,60.67 L6.29,59.29 L7.15,57.94 L8.07,56.64 L8.99,55.40 L9.84,54.22 L10.57,53.10 L11.13,52.04 L11.48,51.01 L11.60,50.00 L11.48,48.99 L11.13,47.96 L10.57,46.90 L9.84,45.78 L8.99,44.60 L8.07,43.36 L7.15,42.06 L6.29,40.71 L5.55,39.33 L4.99,37.94 L4.65,36.57 L4.57,35.24 L4.77,33.98 L5.24,32.82 L5.99,31.77 L6.99,30.85 L8.19,30.06 L9.57,29.40 L11.05,28.85 L12.59,28.40 L14.12,28.01 L15.60,27.66 L16.97,27.30 L18.19,26.89 L19.25,26.40 L20.11,25.80 L20.79,25.05 L21.29,24.15 L21.63,23.08 L21.85,21.85 L21.99,20.48 L22.09,19.00 L22.19,17.44 L22.34,15.84 L22.58,14.27 L22.95,12.77 L23.46,11.39 L24.14,10.18 L24.99,9.19 L26.00,8.43 L27.16,7.93 L28.45,7.70 L29.83,7.71 L31.28,7.96 L32.77,8.39 L34.25,8.97 L35.71,9.63 L37.11,10.33 L38.44,10.98 L39.70,11.55 L40.87,11.97 L41.97,12.21 L43.00,12.23 L43.98,12.01 L44.94,11.57 L45.89,10.90 L46.86,10.04 L47.85,9.04 L48.90,7.93 L50.00,6.80 L51.16,5.69 L52.37,4.68 L53.63,3.83 L54.92,3.17 L56.22,2.77 L57.50,2.65 L58.74,2.82 L59.93,3.28 L61.04,4.01 L62.06,4.99 L62.98,6.17 L63.81,7.50 L64.55,8.92 L65.21,10.37 L65.83,11.79 L66.42,13.11 L67.03,14.30 L67.67,15.32 L68.39,16.14 L69.20,16.74 L70.13,17.15 L71.20,17.36 L72.40,17.41 L73.73,17.33 L75.18,17.18 L76.71,17.01 L78.30,16.86 L79.90,16.79 L81.46,16.84 L82.95,17.05 L84.30,17.45 L85.50,18.04 L86.49,18.84 L87.26,19.83 L87.79,21.00 L88.09,22.33 L88.17,23.77 L88.06,25.28 L87.79,26.84 L87.41,28.40 L86.98,29.92 L86.55,31.38 L86.18,32.74 L85.92,34.01 L85.81,35.17 L85.90,36.22 L86.21,37.18 L86.74,38.06 L87.50,38.89 L88.45,39.70 L89.57,40.50 L90.81,41.33 L92.11,42.20 L93.41,43.12 L94.65,44.12 L95.77,45.19 L96.71,46.32 L97.41,47.52 L97.85,48.75 Z"/></symbol><symbol id="sh-cookie4" viewBox="0 0 100 100"><path d="M98.00,50.00 L97.95,51.26 L97.79,52.50 L97.52,53.74 L97.16,54.96 L96.70,56.15 L96.14,57.31 L95.50,58.43 L94.78,59.52 L93.98,60.56 L93.12,61.55 L92.20,62.50 L91.23,63.40 L90.23,64.25 L89.19,65.05 L88.14,65.80 L87.07,66.50 L86.00,67.17 L84.93,67.80 L83.88,68.39 L82.84,68.96 L81.83,69.50 L80.85,70.03 L79.90,70.55 L79.00,71.07 L78.13,71.59 L77.31,72.11 L76.53,72.66 L75.79,73.22 L75.10,73.81 L74.44,74.44 L73.81,75.10 L73.22,75.79 L72.66,76.53 L72.11,77.31 L71.59,78.13 L71.07,79.00 L70.55,79.90 L70.03,80.85 L69.50,81.83 L68.96,82.84 L68.39,83.88 L67.80,84.93 L67.17,86.00 L66.50,87.07 L65.80,88.14 L65.05,89.19 L64.25,90.23 L63.40,91.23 L62.50,92.20 L61.55,93.12 L60.56,93.98 L59.52,94.78 L58.43,95.50 L57.31,96.14 L56.15,96.70 L54.96,97.16 L53.74,97.52 L52.50,97.79 L51.26,97.95 L50.00,98.00 L48.74,97.95 L47.50,97.79 L46.26,97.52 L45.04,97.16 L43.85,96.70 L42.69,96.14 L41.57,95.50 L40.48,94.78 L39.44,93.98 L38.45,93.12 L37.50,92.20 L36.60,91.23 L35.75,90.23 L34.95,89.19 L34.20,88.14 L33.50,87.07 L32.83,86.00 L32.20,84.93 L31.61,83.88 L31.04,82.84 L30.50,81.83 L29.97,80.85 L29.45,79.90 L28.93,79.00 L28.41,78.13 L27.89,77.31 L27.34,76.53 L26.78,75.79 L26.19,75.10 L25.56,74.44 L24.90,73.81 L24.21,73.22 L23.47,72.66 L22.69,72.11 L21.87,71.59 L21.00,71.07 L20.10,70.55 L19.15,70.03 L18.17,69.50 L17.16,68.96 L16.12,68.39 L15.07,67.80 L14.00,67.17 L12.93,66.50 L11.86,65.80 L10.81,65.05 L9.77,64.25 L8.77,63.40 L7.80,62.50 L6.88,61.55 L6.02,60.56 L5.22,59.52 L4.50,58.43 L3.86,57.31 L3.30,56.15 L2.84,54.96 L2.48,53.74 L2.21,52.50 L2.05,51.26 L2.00,50.00 L2.05,48.74 L2.21,47.50 L2.48,46.26 L2.84,45.04 L3.30,43.85 L3.86,42.69 L4.50,41.57 L5.22,40.48 L6.02,39.44 L6.88,38.45 L7.80,37.50 L8.77,36.60 L9.77,35.75 L10.81,34.95 L11.86,34.20 L12.93,33.50 L14.00,32.83 L15.07,32.20 L16.12,31.61 L17.16,31.04 L18.17,30.50 L19.15,29.97 L20.10,29.45 L21.00,28.93 L21.87,28.41 L22.69,27.89 L23.47,27.34 L24.21,26.78 L24.90,26.19 L25.56,25.56 L26.19,24.90 L26.78,24.21 L27.34,23.47 L27.89,22.69 L28.41,21.87 L28.93,21.00 L29.45,20.10 L29.97,19.15 L30.50,18.17 L31.04,17.16 L31.61,16.12 L32.20,15.07 L32.83,14.00 L33.50,12.93 L34.20,11.86 L34.95,10.81 L35.75,9.77 L36.60,8.77 L37.50,7.80 L38.45,6.88 L39.44,6.02 L40.48,5.22 L41.57,4.50 L42.69,3.86 L43.85,3.30 L45.04,2.84 L46.26,2.48 L47.50,2.21 L48.74,2.05 L50.00,2.00 L51.26,2.05 L52.50,2.21 L53.74,2.48 L54.96,2.84 L56.15,3.30 L57.31,3.86 L58.43,4.50 L59.52,5.22 L60.56,6.02 L61.55,6.88 L62.50,7.80 L63.40,8.77 L64.25,9.77 L65.05,10.81 L65.80,11.86 L66.50,12.93 L67.17,14.00 L67.80,15.07 L68.39,16.12 L68.96,17.16 L69.50,18.17 L70.03,19.15 L70.55,20.10 L71.07,21.00 L71.59,21.87 L72.11,22.69 L72.66,23.47 L73.22,24.21 L73.81,24.90 L74.44,25.56 L75.10,26.19 L75.79,26.78 L76.53,27.34 L77.31,27.89 L78.13,28.41 L79.00,28.93 L79.90,29.45 L80.85,29.97 L81.83,30.50 L82.84,31.04 L83.88,31.61 L84.93,32.20 L86.00,32.83 L87.07,33.50 L88.14,34.20 L89.19,34.95 L90.23,35.75 L91.23,36.60 L92.20,37.50 L93.12,38.45 L93.98,39.44 L94.78,40.48 L95.50,41.57 L96.14,42.69 L96.70,43.85 L97.16,45.04 L97.52,46.26 L97.79,47.50 L97.95,48.74 Z"/></symbol><symbol id="sh-clover4" viewBox="0 0 100 100"><path d="M98.00,50.00 L97.96,51.26 L97.86,52.51 L97.68,53.75 L97.42,54.98 L97.10,56.20 L96.71,57.40 L96.26,58.57 L95.73,59.72 L95.15,60.84 L94.50,61.92 L93.80,62.97 L93.04,63.98 L92.22,64.95 L91.36,65.88 L90.45,66.75 L89.50,67.59 L88.51,68.37 L87.48,69.10 L86.42,69.77 L85.33,70.40 L84.22,70.97 L83.09,71.49 L81.94,71.95 L80.78,72.37 L79.61,72.72 L78.44,73.03 L77.26,73.28 L76.09,73.49 L74.92,73.65 L73.76,73.76 L73.65,74.92 L73.49,76.09 L73.28,77.26 L73.03,78.44 L72.72,79.61 L72.37,80.78 L71.95,81.94 L71.49,83.09 L70.97,84.22 L70.40,85.33 L69.77,86.42 L69.10,87.48 L68.37,88.51 L67.59,89.50 L66.75,90.45 L65.88,91.36 L64.95,92.22 L63.98,93.04 L62.97,93.80 L61.92,94.50 L60.84,95.15 L59.72,95.73 L58.57,96.26 L57.40,96.71 L56.20,97.10 L54.98,97.42 L53.75,97.68 L52.51,97.86 L51.26,97.96 L50.00,98.00 L48.74,97.96 L47.49,97.86 L46.25,97.68 L45.02,97.42 L43.80,97.10 L42.60,96.71 L41.43,96.26 L40.28,95.73 L39.16,95.15 L38.08,94.50 L37.03,93.80 L36.02,93.04 L35.05,92.22 L34.12,91.36 L33.25,90.45 L32.41,89.50 L31.63,88.51 L30.90,87.48 L30.23,86.42 L29.60,85.33 L29.03,84.22 L28.51,83.09 L28.05,81.94 L27.63,80.78 L27.28,79.61 L26.97,78.44 L26.72,77.26 L26.51,76.09 L26.35,74.92 L26.24,73.76 L25.08,73.65 L23.91,73.49 L22.74,73.28 L21.56,73.03 L20.39,72.72 L19.22,72.37 L18.06,71.95 L16.91,71.49 L15.78,70.97 L14.67,70.40 L13.58,69.77 L12.52,69.10 L11.49,68.37 L10.50,67.59 L9.55,66.75 L8.64,65.88 L7.78,64.95 L6.96,63.98 L6.20,62.97 L5.50,61.92 L4.85,60.84 L4.27,59.72 L3.74,58.57 L3.29,57.40 L2.90,56.20 L2.58,54.98 L2.32,53.75 L2.14,52.51 L2.04,51.26 L2.00,50.00 L2.04,48.74 L2.14,47.49 L2.32,46.25 L2.58,45.02 L2.90,43.80 L3.29,42.60 L3.74,41.43 L4.27,40.28 L4.85,39.16 L5.50,38.08 L6.20,37.03 L6.96,36.02 L7.78,35.05 L8.64,34.12 L9.55,33.25 L10.50,32.41 L11.49,31.63 L12.52,30.90 L13.58,30.23 L14.67,29.60 L15.78,29.03 L16.91,28.51 L18.06,28.05 L19.22,27.63 L20.39,27.28 L21.56,26.97 L22.74,26.72 L23.91,26.51 L25.08,26.35 L26.24,26.24 L26.35,25.08 L26.51,23.91 L26.72,22.74 L26.97,21.56 L27.28,20.39 L27.63,19.22 L28.05,18.06 L28.51,16.91 L29.03,15.78 L29.60,14.67 L30.23,13.58 L30.90,12.52 L31.63,11.49 L32.41,10.50 L33.25,9.55 L34.12,8.64 L35.05,7.78 L36.02,6.96 L37.03,6.20 L38.08,5.50 L39.16,4.85 L40.28,4.27 L41.43,3.74 L42.60,3.29 L43.80,2.90 L45.02,2.58 L46.25,2.32 L47.49,2.14 L48.74,2.04 L50.00,2.00 L51.26,2.04 L52.51,2.14 L53.75,2.32 L54.98,2.58 L56.20,2.90 L57.40,3.29 L58.57,3.74 L59.72,4.27 L60.84,4.85 L61.92,5.50 L62.97,6.20 L63.98,6.96 L64.95,7.78 L65.88,8.64 L66.75,9.55 L67.59,10.50 L68.37,11.49 L69.10,12.52 L69.77,13.58 L70.40,14.67 L70.97,15.78 L71.49,16.91 L71.95,18.06 L72.37,19.22 L72.72,20.39 L73.03,21.56 L73.28,22.74 L73.49,23.91 L73.65,25.08 L73.76,26.24 L74.92,26.35 L76.09,26.51 L77.26,26.72 L78.44,26.97 L79.61,27.28 L80.78,27.63 L81.94,28.05 L83.09,28.51 L84.22,29.03 L85.33,29.60 L86.42,30.23 L87.48,30.90 L88.51,31.63 L89.50,32.41 L90.45,33.25 L91.36,34.12 L92.22,35.05 L93.04,36.02 L93.80,37.03 L94.50,38.08 L95.15,39.16 L95.73,40.28 L96.26,41.43 L96.71,42.60 L97.10,43.80 L97.42,45.02 L97.68,46.25 L97.86,47.49 L97.96,48.74 Z"/></symbol><symbol id="sh-clover8" viewBox="0 0 100 100"><path d="M98.00,50.00 L97.95,51.26 L97.79,52.50 L97.52,53.74 L97.16,54.96 L96.70,56.15 L96.14,57.31 L95.50,58.43 L94.78,59.52 L93.98,60.56 L93.12,61.55 L92.20,62.50 L91.23,63.40 L90.23,64.25 L89.19,65.05 L88.14,65.80 L88.35,67.08 L88.52,68.37 L88.63,69.68 L88.68,71.00 L88.66,72.32 L88.56,73.63 L88.39,74.93 L88.14,76.21 L87.79,77.46 L87.37,78.67 L86.85,79.84 L86.25,80.96 L85.56,82.02 L84.79,83.02 L83.94,83.94 L83.02,84.79 L82.02,85.56 L80.96,86.25 L79.84,86.85 L78.67,87.37 L77.46,87.79 L76.21,88.14 L74.93,88.39 L73.63,88.56 L72.32,88.66 L71.00,88.68 L69.68,88.63 L68.37,88.52 L67.08,88.35 L65.80,88.14 L65.05,89.19 L64.25,90.23 L63.40,91.23 L62.50,92.20 L61.55,93.12 L60.56,93.98 L59.52,94.78 L58.43,95.50 L57.31,96.14 L56.15,96.70 L54.96,97.16 L53.74,97.52 L52.50,97.79 L51.26,97.95 L50.00,98.00 L48.74,97.95 L47.50,97.79 L46.26,97.52 L45.04,97.16 L43.85,96.70 L42.69,96.14 L41.57,95.50 L40.48,94.78 L39.44,93.98 L38.45,93.12 L37.50,92.20 L36.60,91.23 L35.75,90.23 L34.95,89.19 L34.20,88.14 L32.92,88.35 L31.63,88.52 L30.32,88.63 L29.00,88.68 L27.68,88.66 L26.37,88.56 L25.07,88.39 L23.79,88.14 L22.54,87.79 L21.33,87.37 L20.16,86.85 L19.04,86.25 L17.98,85.56 L16.98,84.79 L16.06,83.94 L15.21,83.02 L14.44,82.02 L13.75,80.96 L13.15,79.84 L12.63,78.67 L12.21,77.46 L11.86,76.21 L11.61,74.93 L11.44,73.63 L11.34,72.32 L11.32,71.00 L11.37,69.68 L11.48,68.37 L11.65,67.08 L11.86,65.80 L10.81,65.05 L9.77,64.25 L8.77,63.40 L7.80,62.50 L6.88,61.55 L6.02,60.56 L5.22,59.52 L4.50,58.43 L3.86,57.31 L3.30,56.15 L2.84,54.96 L2.48,53.74 L2.21,52.50 L2.05,51.26 L2.00,50.00 L2.05,48.74 L2.21,47.50 L2.48,46.26 L2.84,45.04 L3.30,43.85 L3.86,42.69 L4.50,41.57 L5.22,40.48 L6.02,39.44 L6.88,38.45 L7.80,37.50 L8.77,36.60 L9.77,35.75 L10.81,34.95 L11.86,34.20 L11.65,32.92 L11.48,31.63 L11.37,30.32 L11.32,29.00 L11.34,27.68 L11.44,26.37 L11.61,25.07 L11.86,23.79 L12.21,22.54 L12.63,21.33 L13.15,20.16 L13.75,19.04 L14.44,17.98 L15.21,16.98 L16.06,16.06 L16.98,15.21 L17.98,14.44 L19.04,13.75 L20.16,13.15 L21.33,12.63 L22.54,12.21 L23.79,11.86 L25.07,11.61 L26.37,11.44 L27.68,11.34 L29.00,11.32 L30.32,11.37 L31.63,11.48 L32.92,11.65 L34.20,11.86 L34.95,10.81 L35.75,9.77 L36.60,8.77 L37.50,7.80 L38.45,6.88 L39.44,6.02 L40.48,5.22 L41.57,4.50 L42.69,3.86 L43.85,3.30 L45.04,2.84 L46.26,2.48 L47.50,2.21 L48.74,2.05 L50.00,2.00 L51.26,2.05 L52.50,2.21 L53.74,2.48 L54.96,2.84 L56.15,3.30 L57.31,3.86 L58.43,4.50 L59.52,5.22 L60.56,6.02 L61.55,6.88 L62.50,7.80 L63.40,8.77 L64.25,9.77 L65.05,10.81 L65.80,11.86 L67.08,11.65 L68.37,11.48 L69.68,11.37 L71.00,11.32 L72.32,11.34 L73.63,11.44 L74.93,11.61 L76.21,11.86 L77.46,12.21 L78.67,12.63 L79.84,13.15 L80.96,13.75 L82.02,14.44 L83.02,15.21 L83.94,16.06 L84.79,16.98 L85.56,17.98 L86.25,19.04 L86.85,20.16 L87.37,21.33 L87.79,22.54 L88.14,23.79 L88.39,25.07 L88.56,26.37 L88.66,27.68 L88.68,29.00 L88.63,30.32 L88.52,31.63 L88.35,32.92 L88.14,34.20 L89.19,34.95 L90.23,35.75 L91.23,36.60 L92.20,37.50 L93.12,38.45 L93.98,39.44 L94.78,40.48 L95.50,41.57 L96.14,42.69 L96.70,43.85 L97.16,45.04 L97.52,46.26 L97.79,47.50 L97.95,48.74 Z"/></symbol></svg>
+<deck-stage width="1920" height="1080">
+<section data-label="Title">
+<img class="evt evt-title" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad" style="padding-top:96px">
+  <div class="row" style="flex:1;align-items:center;gap:30px">
+    <div class="grow stack" style="justify-content:center;gap:0">
+      <div class="r"><span class="chip"><span class="dot" style="background:var(--blue)"></span>Flutter · Gemma 4 · On-device</span></div>
+      <h1 class="r d1s" style="font-size:112px;line-height:.98;font-weight:700;letter-spacing:-.028em;margin:48px 0 0;font-variation-settings:'ROND' 100">
+        Building<br>On-Device AI Apps<br><span style="color:var(--ink-3)">with</span> Flutter <span style="color:var(--ink-3)">&amp;</span> Gemma
+      </h1>
+      <div class="r d3s" style="margin-top:64px;display:flex;align-items:center;gap:28px">
+        <div style="width:6px;align-self:stretch;border-radius:6px;background:linear-gradient(var(--blue) 25%,var(--red) 25% 50%,var(--yellow) 50% 75%,var(--green) 75%)"></div>
+        <div>
+          <div style="font-size:46px;font-weight:600;letter-spacing:-.02em">Akansha Jain</div>
+          <div class="body" style="font-size:28px;margin-top:6px">Senior Software Engineer · AutoNation Inc.</div>
+          <div class="body" style="font-size:26px;color:var(--ink-3)">Organiser - Flutter Delhi · FFDG New Delhi</div>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;width:560px;height:560px;flex-shrink:0" class="p d2s">
+      <div class="field-shape spin" style="inset:-40px"><svg viewBox="0 0 100 100" style="fill:var(--blue-lo)"><use href="#sh-clover8"/></svg></div>
+      <div style="position:absolute;inset:36px"><svg viewBox="0 0 100 100" width="488" height="488" style="display:block;overflow:visible"><defs><clipPath id="hs-title"><path d="M98.00,50.00 L97.81,51.25 L97.25,52.48 L96.37,53.65 L95.26,54.76 L94.02,55.80 L92.75,56.77 L91.58,57.71 L90.58,58.63 L89.84,59.57 L89.41,60.56 L89.29,61.64 L89.46,62.82 L89.86,64.11 L90.41,65.51 L91.02,66.99 L91.58,68.51 L91.98,70.03 L92.16,71.48 L92.03,72.82 L91.57,74.00 L90.78,74.99 L89.68,75.77 L88.34,76.35 L86.82,76.75 L85.22,77.03 L83.64,77.24 L82.15,77.46 L80.83,77.76 L79.72,78.21 L78.85,78.85 L78.21,79.72 L77.76,80.83 L77.46,82.15 L77.24,83.64 L77.03,85.22 L76.75,86.82 L76.35,88.34 L75.77,89.68 L74.99,90.78 L74.00,91.57 L72.82,92.03 L71.48,92.16 L70.03,91.98 L68.51,91.58 L66.99,91.02 L65.51,90.41 L64.11,89.86 L62.82,89.46 L61.64,89.29 L60.56,89.41 L59.57,89.84 L58.63,90.58 L57.71,91.58 L56.77,92.75 L55.80,94.02 L54.76,95.26 L53.65,96.37 L52.48,97.25 L51.25,97.81 L50.00,98.00 L48.75,97.81 L47.52,97.25 L46.35,96.37 L45.24,95.26 L44.20,94.02 L43.23,92.75 L42.29,91.58 L41.37,90.58 L40.43,89.84 L39.44,89.41 L38.36,89.29 L37.18,89.46 L35.89,89.86 L34.49,90.41 L33.01,91.02 L31.49,91.58 L29.97,91.98 L28.52,92.16 L27.18,92.03 L26.00,91.57 L25.01,90.78 L24.23,89.68 L23.65,88.34 L23.25,86.82 L22.97,85.22 L22.76,83.64 L22.54,82.15 L22.24,80.83 L21.79,79.72 L21.15,78.85 L20.28,78.21 L19.17,77.76 L17.85,77.46 L16.36,77.24 L14.78,77.03 L13.18,76.75 L11.66,76.35 L10.32,75.77 L9.22,74.99 L8.43,74.00 L7.97,72.82 L7.84,71.48 L8.02,70.03 L8.42,68.51 L8.98,66.99 L9.59,65.51 L10.14,64.11 L10.54,62.82 L10.71,61.64 L10.59,60.56 L10.16,59.57 L9.42,58.63 L8.42,57.71 L7.25,56.77 L5.98,55.80 L4.74,54.76 L3.63,53.65 L2.75,52.48 L2.19,51.25 L2.00,50.00 L2.19,48.75 L2.75,47.52 L3.63,46.35 L4.74,45.24 L5.98,44.20 L7.25,43.23 L8.42,42.29 L9.42,41.37 L10.16,40.43 L10.59,39.44 L10.71,38.36 L10.54,37.18 L10.14,35.89 L9.59,34.49 L8.98,33.01 L8.42,31.49 L8.02,29.97 L7.84,28.52 L7.97,27.18 L8.43,26.00 L9.22,25.01 L10.32,24.23 L11.66,23.65 L13.18,23.25 L14.78,22.97 L16.36,22.76 L17.85,22.54 L19.17,22.24 L20.28,21.79 L21.15,21.15 L21.79,20.28 L22.24,19.17 L22.54,17.85 L22.76,16.36 L22.97,14.78 L23.25,13.18 L23.65,11.66 L24.23,10.32 L25.01,9.22 L26.00,8.43 L27.18,7.97 L28.52,7.84 L29.97,8.02 L31.49,8.42 L33.01,8.98 L34.49,9.59 L35.89,10.14 L37.18,10.54 L38.36,10.71 L39.44,10.59 L40.43,10.16 L41.37,9.42 L42.29,8.42 L43.23,7.25 L44.20,5.98 L45.24,4.74 L46.35,3.63 L47.52,2.75 L48.75,2.19 L50.00,2.00 L51.25,2.19 L52.48,2.75 L53.65,3.63 L54.76,4.74 L55.80,5.98 L56.77,7.25 L57.71,8.42 L58.63,9.42 L59.57,10.16 L60.56,10.59 L61.64,10.71 L62.82,10.54 L64.11,10.14 L65.51,9.59 L66.99,8.98 L68.51,8.42 L70.03,8.02 L71.48,7.84 L72.82,7.97 L74.00,8.43 L74.99,9.22 L75.77,10.32 L76.35,11.66 L76.75,13.18 L77.03,14.78 L77.24,16.36 L77.46,17.85 L77.76,19.17 L78.21,20.28 L78.85,21.15 L79.72,21.79 L80.83,22.24 L82.15,22.54 L83.64,22.76 L85.22,22.97 L86.82,23.25 L88.34,23.65 L89.68,24.23 L90.78,25.01 L91.57,26.00 L92.03,27.18 L92.16,28.52 L91.98,29.97 L91.58,31.49 L91.02,33.01 L90.41,34.49 L89.86,35.89 L89.46,37.18 L89.29,38.36 L89.41,39.44 L89.84,40.43 L90.58,41.37 L91.58,42.29 L92.75,43.23 L94.02,44.20 L95.26,45.24 L96.37,46.35 L97.25,47.52 L97.81,48.75 Z"/></clipPath></defs><image href="assets/headshot.png" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" clip-path="url(#hs-title)"/></svg></div>
+      <div style="position:absolute;right:-6px;bottom:52px;width:120px;height:120px"><div class="field-shape " style="inset:0"><svg viewBox="0 0 100 100" style="fill:var(--yellow)"><use href="#sh-cookie9"/></svg></div></div>
+      <div style="position:absolute;left:0;top:46px;width:64px;height:64px"><div class="field-shape " style="inset:0"><svg viewBox="0 0 100 100" style="fill:var(--green)"><use href="#sh-cookie4"/></svg></div></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">01 / 33</span></div>
+</section>
+<section data-label="Every AI feature has the same shape">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">How most AI features work today</p>
+  <h2 class="h1 r d1s">Every AI feature you've shipped<br>works the <span class="c-blue">same way.</span></h2>
+  <div class="r d2s" style="flex:1;display:flex;align-items:center;justify-content:space-between;margin-top:40px;position:relative">
+    <div class="card p" style="width:430px;height:360px;display:flex;flex-direction:column;justify-content:space-between;"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2" width="11" height="20" rx="3"/><path d="M11 18h2"/></svg></div><div><div class="h3">Your app</div><div class="small" style="margin-top:8px;font-size:26px">Sends the user's request</div></div></div>
+    <div style="flex:1;position:relative;height:360px">
+      <svg viewBox="0 0 600 360" style="position:absolute;inset:0;width:100%;height:100%" fill="none">
+        <defs>
+          <marker id="s2-arrow" viewBox="0 0 24 24" refX="20" refY="12" markerWidth="36" markerHeight="36" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M5 4 L20 12 L5 20" fill="none" stroke="var(--ink-3)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+        <path d="M40 150 C 190 50, 410 50, 560 150" pathLength="100" stroke="var(--ink-3)" stroke-width="4" stroke-linecap="round" stroke-dasharray="3.4 3.04" marker-end="url(#s2-arrow)"/>
+        <path d="M560 210 C 410 310, 190 310, 40 210" pathLength="100" stroke="var(--ink-3)" stroke-width="4" stroke-linecap="round" stroke-dasharray="3.4 3.04" marker-end="url(#s2-arrow)"/>
+      </svg>
+      <div style="position:absolute;left:0;right:0;top:0;text-align:center" class="body">a question, a photo, a voice note →</div>
+      <div style="position:absolute;left:0;right:0;bottom:0;text-align:center" class="body">← the answer, after a round trip</div>
+    </div>
+    <div class="card p" style="width:430px;height:360px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface-2)"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H7a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 11a4 4 0 0 1-1.5 8z"/></svg></div><div><div class="h3">Someone else's GPU</div><div class="small" style="margin-top:8px;font-size:26px">Runs the model and replies</div></div></div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">02 / 33</span></div>
+</section>
+<section data-label="What the network hop costs">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">The round trip</p>
+  <h2 class="h1 r d1s">That round trip <span class="c-red">isn't free.</span></h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:70px;flex:1">
+    <div class="r d2s"><div class="card" style="display:flex;flex-direction:column;gap:30px;background:var(--surface);height:100%"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></div><div class="h3">Latency</div><p class="body" style="font-size:31px">The user waits for the network before the first word appears, and longer on a weak connection.</p></div></div>
+    <div class="r d3s"><div class="card" style="display:flex;flex-direction:column;gap:30px;background:var(--surface);height:100%"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18l-2.5-1.7L14 21l-2-1.7L10 21l-2.5-1.7L5 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div><div class="h3">Cost</div><p class="body" style="font-size:31px">You pay per token, so the bill grows as more people use the feature.</p></div></div>
+    <div class="r d4s"><div class="card" style="display:flex;flex-direction:column;gap:30px;background:var(--surface);height:100%"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div class="h3">Privacy</div><p class="body" style="font-size:31px">Whatever the user typed, photographed or recorded leaves their phone.</p></div></div>
+    <div class="r d5s"><div class="card" style="display:flex;flex-direction:column;gap:30px;background:var(--surface);height:100%"><div class="icon-tile" style="background:var(--surface-3);color:var(--ink-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="icon-mask-6"><rect width="24" height="24" fill="#fff" stroke="none"/><path d="M3 3l18 18" stroke="#000" stroke-width="4.6"/></mask></defs><g mask="url(#icon-mask-6)"><path d="M1.5 9.3a15 15 0 0 1 21 0"/><path d="M5 12.9a10 10 0 0 1 14 0"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></g><path d="M3 3l18 18"/></svg></div><div class="h3">Availability</div><p class="body" style="font-size:31px">No signal means no feature, whether that's on a flight or on patchy mobile data.</p></div></div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">03 / 33</span></div>
+</section>
+<section data-label="What if there were no hop">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad center" style="align-items:flex-start">
+  <p class="kicker r">So here's the question</p>
+  <h2 class="r d1s" style="font-size:168px;line-height:.94;font-weight:700;letter-spacing:-.03em;margin:0;font-variation-settings:'ROND' 100">
+    What if the model<br>lived <span style="position:relative;display:inline-block;padding:0 34px">
+      <span style="position:absolute;inset:6px -4px -6px;border:6px solid var(--blue);border-radius:60px"></span>
+      <span class="c-blue">inside</span></span><br>your app?
+  </h2>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">04 / 33</span></div>
+</section>
+<section data-label="Section · Meet Gemma" class="field yellow">
+<div class="field-shape spin" style="right:-180px;top:-120px;width:980px;height:980px"><svg viewBox="0 0 100 100" style="fill:rgba(32,33,36,.10)"><use href="#sh-cookie12"/></svg></div>
+<div class="field-shape p d2s" style="right:210px;bottom:150px;width:250px;height:250px"><svg viewBox="0 0 100 100" style="fill:#202124"><use href="#sh-clover4"/></svg></div>
+<div class="pad center">
+  <div class="r"><span class="num">01</span></div>
+  <h2 class="d1 r d1s" style="margin-top:40px">Meet<br>Gemma</h2>
+  <p class="lead r d2s" style="color:rgba(32,33,36,.72);margin-top:34px;max-width:900px">Google's family of open models, including the one we'll run on the device today.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">05 / 33</span></div>
+</section>
+<section data-label="Gemma 4 lineup">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">The Gemma 4 lineup</p>
+  <h2 class="h1 r d1s">Five sizes, <span class="c-blue">and two are made for phones.</span></h2>
+  <div class="row" style="margin-top:44px;flex:1;gap:36px">
+    <div class="stack r d2s" style="flex:1.05;gap:22px">
+      <div class="chip" style="align-self:flex-start;background:var(--blue-lo);color:var(--blue-hi)"><span class="dot" style="background:var(--blue)"></span>Phones, laptops, browsers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+        <div class="card tight" style="background:var(--blue-lo);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">E2B</div><div class="small" style="font-size:25px">Effective 2B</div></div>
+        <div class="card tight" style="background:var(--blue-lo);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">E4B</div><div class="small" style="font-size:25px">Effective 4B</div></div>
+      </div>
+      <p class="body" style="font-size:28px;margin-top:6px">128K-token context. Takes text, images and audio.</p>
+      <div class="card" style="margin-top:auto;background:var(--surface);padding:32px 40px">
+        <div class="h3" style="font-size:34px">What does the “E” mean?</div>
+        <p class="body" style="font-size:26px;margin-top:10px">Google says the “E” stands for “effective” parameters. Per-Layer Embeddings keep the working memory close to that of a much smaller model.</p>
+      </div>
+    </div>
+    <div class="stack r d3s" style="flex:.95;gap:22px">
+      <div class="chip" style="align-self:flex-start"><span class="dot" style="background:var(--ink-3)"></span>Workstations and servers</div>
+      <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">12B</div><div class="small" style="font-size:25px">Multimodal</div></div>
+      <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">26B A4B</div><div class="small" style="font-size:25px">Mixture of Experts, 3.8B active</div></div>
+      <div class="card tight" style="background:var(--surface);display:flex;flex-direction:column;gap:6px"><div class="h2" style="font-size:52px">31B</div><div class="small" style="font-size:25px">Dense</div></div>
+      <p class="body" style="font-size:28px;margin-top:6px">256K-token context.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">06 / 33</span></div>
+</section>
+<section data-label="How far on-device models have come">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="field-shape spin" style="left:-170px;top:40px;width:740px;height:740px"><svg viewBox="0 0 100 100" style="fill:var(--blue-lo)"><use href="#sh-cookie9"/></svg></div>
+<div class="pad center" style="position:relative">
+  <p class="kicker r">In 2024, the smallest Gemma could only read text</p>
+  <div class="row r d1s" style="align-items:center;gap:64px;margin-top:10px">
+    <div style="font-size:330px;line-height:.86;font-weight:700;letter-spacing:-.035em;font-variation-settings:'ROND' 100;color:var(--blue-hi);flex-shrink:0">2.3B</div>
+    <div class="stack" style="gap:22px">
+      <div class="chip" style="align-self:flex-start;background:var(--blue-lo);color:var(--blue-hi);font-size:30px"><span class="dot" style="background:var(--blue)"></span>Gemma 4 E2B, the model in our demo</div>
+      <div class="h2" style="font-size:64px;line-height:1.08">effective parameters,<br>running on a phone.</div>
+      <p class="lead ink" style="font-size:36px">It understands text, images and audio, and was pre-trained on 140+ languages.</p>
+      <p class="lead" style="font-size:36px">On an iPhone 17 Pro it starts replying in 0.3 s and writes <b class="c-blue">56.5 tokens a second</b>, faster than anyone can read.</p>
+    </div>
+  </div>
+  <div class="row r d3s" style="gap:24px;margin-top:60px">
+    <div class="card tight" style="background:var(--surface);flex:1"><div class="h3" style="font-size:40px">56.5 tokens/s</div><div class="small" style="font-size:24px;margin-top:4px">iPhone 17 Pro · GPU</div></div>
+    <div class="card tight" style="background:var(--surface);flex:1"><div class="h3" style="font-size:40px">52.1 tokens/s</div><div class="small" style="font-size:24px;margin-top:4px">S26 Ultra · GPU</div></div>
+    <div class="card tight" style="background:var(--surface);flex:1"><div class="h3" style="font-size:40px">160.2 tokens/s</div><div class="small" style="font-size:24px;margin-top:4px">MacBook Pro M4 Max · GPU</div></div>
+  </div>
+  <p class="small r d4s" style="margin-top:26px">Speeds from the litert-community/gemma-4-E2B-it-litert-lm model card: 1,024-token prompt, 256 generated tokens, 2,048-token context. Parameters and languages from Google's Gemma 4 E2B model card.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">07 / 33</span></div>
+</section>
+<section data-label="Industries that need it">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Who has no other option</p>
+  <h2 class="h1 r d1s">Some apps <span class="c-green">can't use the cloud.</span></h2>
+  <div class="stack" style="margin-top:52px;gap:22px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Healthcare</div><p class="body" style="font-size:27px;margin-top:6px">Summarise a consultation while it happens.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--green);padding-left:32px"><p class="body ink" style="font-size:28px">Patient notes are not allowed to reach someone else's server.</p></div>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Field work</div><p class="body" style="font-size:27px;margin-top:6px">An assistant for the technician on site.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--blue);padding-left:32px"><p class="body ink" style="font-size:28px">Basements, rigs, aircraft, rural roads — there is no signal where the work is.</p></div>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Banking</div><p class="body" style="font-size:27px;margin-top:6px">Read an ID or a claim form from a photo.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--yellow);padding-left:32px"><p class="body ink" style="font-size:28px">The document never has to leave the customer's phone.</p></div>
+    </div>
+    <div class="card r d5s" style="background:var(--surface);display:flex;align-items:center;gap:40px;padding:34px 46px">
+      <div style="flex:.9"><div class="h2" style="font-size:40px">Accessibility</div><p class="body" style="font-size:27px;margin-top:6px">Describe what the camera is pointed at.</p></div>
+      <div style="flex:1.1;border-left:3px solid var(--red);padding-left:32px"><p class="body ink" style="font-size:28px">It has to answer in the moment, even with no connection at all.</p></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">08 / 33</span></div>
+</section>
+<section data-label="Section · How it works" class="field green">
+<div class="field-shape spin" style="right:-220px;top:-160px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-clover8"/></svg></div>
+<div class="field-shape p d2s" style="right:260px;bottom:170px;width:230px;height:230px"><svg viewBox="0 0 100 100" style="fill:#fff"><use href="#sh-cookie4"/></svg></div>
+<div class="pad center">
+  <div class="r"><span class="num">02</span></div>
+  <h2 class="d1 r d1s" style="margin-top:40px">How it<br>works</h2>
+  <p class="lead r d2s" style="color:rgba(255,255,255,.82);margin-top:34px;max-width:900px">From your Dart code down to the chip.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">09 / 33</span></div>
+</section>
+<section data-label="The stack">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">What's inside the device</p>
+  <h2 class="h1 r d1s">You only write the top layer.</h2>
+  <div class="row" style="margin-top:46px;flex:1;gap:56px;align-items:flex-start">
+    <div class="r d2s" style="flex:1.35;position:relative;padding:28px;border-radius:64px;box-shadow:inset 0 0 0 5px var(--blue)">
+      <div style="position:absolute;top:-22px;left:60px;background:var(--bg);padding:0 18px" class="small c-blue">the device</div>
+      <div class="stack" style="gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--blue-lo)"><div class="h3" style="font-size:38px">Your Flutter app</div><div class="small" style="font-size:25px;color:var(--blue-hi)">Dart and widgets</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_edge_ai</div><div class="small" style="font-size:25px;">models, chats, downloads</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">flutter_edge_ai_litertlm</div><div class="small" style="font-size:25px;">the engine, via dart:ffi</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-2)"><div class="h3" style="font-size:38px">LiteRT-LM</div><div class="small" style="font-size:25px;">Google's on-device LLM runtime</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:96px;border-radius:var(--r-md);background:var(--surface-3)"><div class="h3" style="font-size:38px">CPU · GPU · NPU</div><div class="small" style="font-size:25px;">the hardware</div></div>
+      </div>
+    </div>
+    <div class="stack r d3s" style="flex:.65;gap:28px;justify-content:center">
+      <div class="card" style="background:var(--surface)">
+        <div class="h3" style="font-size:36px">LiteRT-LM</div>
+        <p class="body" style="font-size:28px;margin-top:12px">Google's runtime for running LLMs on devices. It also powers on-device AI in Chrome, Chromebook Plus and Pixel Watch.</p>
+      </div>
+      <div class="card" style="background:var(--surface)">
+        <div class="h3" style="font-size:36px">Straight from Dart</div>
+        <p class="body" style="font-size:28px;margin-top:12px">flutter_edge_ai talks to the runtime straight from Dart through <code class="code-inline">dart:ffi</code>, on Android, iOS and desktop.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">10 / 33</span></div>
+</section>
+<section data-label="A small core, plus engines">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">How the package is put together</p>
+  <h2 class="h1 r d1s">A small core, <span class="c-green">plus what you actually use.</span></h2>
+  <div class="row" style="margin-top:50px;flex:1;gap:48px">
+    <div class="stack r d2s" style="flex:1.3;gap:12px">
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">the core, always needed</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_litertlm</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.litertlm engine: mobile, desktop, web</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--green-lo)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_speech</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">speech-to-text and text-to-speech</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_mediapipe</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">.task engine: mobile, web</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_rag</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">on-device RAG</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_agent</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">agent skills</span></div>
+      <div style="display:flex;align-items:center;gap:24px;padding:22px 30px;border-radius:var(--r-md);background:var(--surface)"><span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-3);color:#0F1114"></span><code style="font-size:29px;color:var(--ink);font-weight:500">flutter_edge_ai_onnx</code><span class="body" style="font-size:26px;margin-left:auto;text-align:right">ONNX Runtime</span></div>
+    </div>
+    <div class="stack r d3s" style="flex:.7;gap:28px">
+      <div class="card" style="background:var(--surface);flex:1">
+        <div class="h3" style="font-size:38px">Why it is split up</div>
+        <p class="body" style="font-size:28px;margin-top:14px">Every engine comes with its own native libraries. Splitting them up means your app only ships the ones it uses.</p>
+      </div>
+      <div class="card" style="background:var(--red-lo)">
+        <div style="display:flex;gap:18px;align-items:center"><div style="width:44px;height:44px;color:var(--red-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4.5M12 17.5h.01"/></svg></div><div class="h3 c-red" style="font-size:36px">The catch</div></div>
+        <p class="body ink" style="font-size:27px;margin-top:14px">The core <b>doesn't</b> register an engine for you. Forget to add one and the app still compiles, then fails at runtime.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">11 / 33</span></div>
+</section>
+<section data-label="One file, every platform">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Picking a model format</p>
+  <h2 class="h1 r d1s">One model file <span class="c-blue">for every platform.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:60px;flex:1">
+    <div class="card r d2s" style="background:var(--blue-lo);padding:56px">
+      <code class="h2" style="font-size:66px;color:var(--blue-hi)">.litertlm</code>
+      <p class="body ink" style="font-size:30px;margin:18px 0 30px">The LiteRT-LM format, and what this demo uses.</p>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--green-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="body ink" style="font-size:32px">Android</span></div><div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--green-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="body ink" style="font-size:32px">iOS</span></div><div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--green-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="body ink" style="font-size:32px">macOS, Windows, Linux</span></div>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);padding:56px">
+      <code class="h2" style="font-size:66px;color:var(--ink-2)">.task</code>
+      <p class="body" style="font-size:30px;margin:18px 0 30px">The MediaPipe format, used by older models.</p>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--green-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="body ink" style="font-size:32px">Android</span></div><div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--green-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="body ink" style="font-size:32px">iOS</span></div><div style="display:flex;align-items:center;gap:18px;padding:18px 0;border-top:2px solid var(--outline)"><span style="width:40px;height:40px;flex-shrink:0;color:var(--red-hi)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></span><span class="body ink" style="font-size:32px">macOS, Windows, Linux</span></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">12 / 33</span></div>
+</section>
+<section data-label="Other models">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Same code, different weights</p>
+  <h2 class="h1 r d1s">Gemma is one choice, <span class="c-blue">not the only one.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px;margin-top:46px">
+    <div class="card r d2s" style="background:var(--surface);display:flex;flex-direction:column;gap:14px">
+      <div class="h3" style="font-size:32px">Small and quick</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">SmolLM 135M</code><span class="small" style="font-size:23px">135 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">LFM2.5 230M</code><span class="small" style="font-size:23px">168 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">FunctionGemma 270M</code><span class="small" style="font-size:23px">284 MB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">FunctionGemma does one job: it calls your functions.</p>
+    </div>
+    <div class="card r d3s" style="background:var(--blue-lo);display:flex;flex-direction:column;gap:14px">
+      <div class="h3 c-blue" style="font-size:32px">Text, tools, reasoning</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen3 0.6B</code><span class="small" style="font-size:23px">586 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen 2.5 1.5B</code><span class="small" style="font-size:23px">1.6 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">DeepSeek R1 1.5B</code><span class="small" style="font-size:23px">1.7 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Phi-4 Mini</code><span class="small" style="font-size:23px">3.9 GB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">Qwen3 and DeepSeek R1 also stream their reasoning.</p>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;flex-direction:column;gap:14px">
+      <div class="h3" style="font-size:32px">Vision</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">SmolVLM2 500M</code><span class="small" style="font-size:23px">360 MB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">FastVLM 0.5B</code><span class="small" style="font-size:23px">0.5 GB</span></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><code style="font-size:25px;color:var(--ink)">Qwen2-VL 2B</code><span class="small" style="font-size:23px">1.8 GB</span></div>
+      <p class="small" style="font-size:23px;margin-top:auto">Pick the smallest one that can do the job.</p>
+    </div>
+  </div>
+  <div class="row r d5s" style="margin-top:30px;gap:26px;align-items:stretch">
+    <div class="card" style="flex:1.4;background:var(--yellow-lo)">
+      <div class="h3 c-yellow" style="font-size:32px">Or the model already in the operating system</div>
+      <p class="body ink" style="font-size:26px;margin-top:8px">Gemini Nano on Android, Apple Foundation Models on iOS and macOS, Phi Silica on Windows. Nothing to download — but it is a different model on every platform, and it may be switched off.</p>
+    </div>
+    <div class="card" style="flex:1;background:var(--surface)">
+      <div class="h3" style="font-size:32px">Switching costs two lines</div>
+      <p class="body" style="font-size:26px;margin-top:8px">The file you install, and the <code class="code-inline">ModelType</code> you pass. Everything after that is the same code.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">13 / 33</span></div>
+</section>
+<section data-label="Section · The demo" class="field red">
+<div class="field-shape spin" style="right:-200px;top:-140px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-cookie12"/></svg></div>
+<div class="field-shape p d2s" style="right:250px;bottom:160px;width:240px;height:240px"><svg viewBox="0 0 100 100" style="fill:#fff"><use href="#sh-clover4"/></svg></div>
+<div class="pad center">
+  <div class="r"><span class="num">03</span></div>
+  <h2 class="d1 r d1s" style="margin-top:40px">Let me<br>show you</h2>
+  <p class="lead r d2s" style="color:rgba(255,255,255,.84);margin-top:34px;max-width:900px">One Flutter app running Gemma 4 E2B, entirely on the device.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">14 / 33</span></div>
+</section>
+<section data-label="Demo · Vision">
+<div class="demo-stage">
+  <div class="demo-head r">
+    <div class="icon-tile" style="background:var(--blue);color:#0F1114;width:66px;height:66px;border-radius:22px;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+    <div class="demo-titles">
+      <span class="kicker" style="color:var(--blue-hi)">Demo 1 · Vision</span>
+      <h2 class="demo-title">Show it a photo.</h2>
+    </div>
+    <div class="demo-prompt" style="background:var(--blue-lo)">
+      <div class="small" style="color:var(--blue-hi)">Try asking</div>
+      <div class="demo-prompt-text">“What's in this image?”</div>
+    </div>
+  </div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/vision.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/vision.mp4</code><p>Vision chat: attach a photo, ask “What's in this image?”, record until the answer finishes. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+</div>
+</section>
+<section data-label="Demo · Thinking">
+<div class="demo-stage">
+  <div class="demo-head r">
+    <div class="icon-tile" style="background:var(--yellow);color:#0F1114;width:66px;height:66px;border-radius:22px;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div>
+    <div class="demo-titles">
+      <span class="kicker" style="color:var(--yellow-hi)">Demo 2 · Thinking</span>
+      <h2 class="demo-title">Watch it think.</h2>
+    </div>
+    <div class="demo-prompt" style="background:var(--yellow-lo)">
+      <div class="small" style="color:var(--yellow-hi)">The prompt</div>
+      <div class="demo-prompt-text">“If a bat and ball cost 1.10 and the bat costs 1 more than the ball, what does the ball cost?”</div>
+    </div>
+  </div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/thinking.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/thinking.mp4</code><p>Thinking mode: tap the bat-and-ball suggestion, expand “Reasoning” while it streams. 30–60 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+</div>
+</section>
+<section data-label="Demo · Function calling">
+<div class="demo-stage">
+  <div class="demo-head r">
+    <div class="icon-tile" style="background:var(--green);color:#0F1114;width:66px;height:66px;border-radius:22px;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.4-.6-.6-2.4z"/></svg></div>
+    <div class="demo-titles">
+      <span class="kicker" style="color:var(--green-hi)">Demo 3 · Function calling</span>
+      <h2 class="demo-title">It calls your Dart.</h2>
+    </div>
+    <div class="demo-prompt" style="background:var(--green-lo)">
+      <div class="small" style="color:var(--green-hi)">The prompt</div>
+      <div class="demo-prompt-text">“Add buy milk, then tell me what is on my list”</div>
+    </div>
+  </div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/function-calling.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/function-calling.mp4</code><p>Function calling: send “Add buy milk, then tell me what's on my list”. Show both tool bubbles and the task strip update. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+</div>
+</section>
+<section data-label="Demo · Voice">
+<div class="demo-stage">
+  <div class="demo-head r">
+    <div class="icon-tile" style="background:var(--red);color:#0F1114;width:66px;height:66px;border-radius:22px;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4"/><path d="M8 6.5v11"/><path d="M12 3v18"/><path d="M16 7v10"/><path d="M20 10v4"/></svg></div>
+    <div class="demo-titles">
+      <span class="kicker" style="color:var(--red-hi)">Demo 4 · Voice</span>
+      <h2 class="demo-title">Talk to it.</h2>
+    </div>
+    <div class="demo-prompt" style="background:var(--red-lo)">
+      <div class="small" style="color:var(--red-hi)">What I asked</div>
+      <div class="demo-prompt-text">“Tell me a joke about programmers.”</div>
+    </div>
+  </div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/voice-loop.mp4?v=5"  loop playsinline preload="auto" data-audio></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/voice-loop.mp4</code><p>Voice loop, push-to-talk, recorded WITH system audio: ask a short question and let it speak the reply. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+</div>
+</section>
+<section data-label="Demo · Offline">
+<div class="demo-stage">
+  <div class="demo-head r">
+    <div class="icon-tile" style="background:var(--blue);color:#0F1114;width:66px;height:66px;border-radius:22px;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="icon-mask-31"><rect width="24" height="24" fill="#fff" stroke="none"/><path d="M3 3l18 18" stroke="#000" stroke-width="4.6"/></mask></defs><g mask="url(#icon-mask-31)"><path d="M1.5 9.3a15 15 0 0 1 21 0"/><path d="M5 12.9a10 10 0 0 1 14 0"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></g><path d="M3 3l18 18"/></svg></div>
+    <div class="demo-titles">
+      <span class="kicker" style="color:var(--blue-hi)">Demo 5 · Offline</span>
+      <h2 class="demo-title">Now turn off the Wi‑Fi.</h2>
+    </div>
+    <div class="demo-prompt" style="background:var(--blue-lo)">
+      <div class="small" style="color:var(--blue-hi)">What to watch</div>
+      <div class="demo-prompt-text">Wi-Fi goes off in Control Center, then a new prompt.</div>
+    </div>
+  </div>
+  <div class="demo-mac"><div class="mac p lg"><div class="mac-lid"><div class="mac-screen"><div class="mac-full"><video data-src="assets/demo/airplane-mode.mp4?v=5" muted loop playsinline preload="auto" ></video><div class="asset-needed"><b>Recording needed</b><code>assets/demo/airplane-mode.mp4</code><p>Turn Wi-Fi off in Control Center on camera, then send a new prompt in Vision or Thinking. 20–40 s.</p></div></div><div class="mac-notch"></div></div></div><div class="mac-base"><div class="mac-lip"></div></div></div></div>
+</div>
+</section>
+<section data-label="What was running">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">What you just watched</p>
+  <h2 class="h1 r d1s">Three models, <span class="c-blue">one download each.</span></h2>
+  <div class="stack" style="margin-top:50px;gap:22px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Whisper Tiny</code><p class="small" style="font-size:25px;margin-top:6px">151 MB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">Your voice becomes text. It listens in 30-second windows.</p></div>
+    </div>
+    <div class="card r d3s" style="background:var(--blue-lo);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Gemma 4 E2B</code><p class="small" style="font-size:25px;margin-top:6px">2.6 GB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">Text and images in, the answer out. Every demo you just saw used this one.</p></div>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;align-items:center;gap:36px;padding:34px 46px">
+      <div style="flex:.8"><code class="h2" style="font-size:40px;color:var(--ink)">Inflect-Nano</code><p class="small" style="font-size:25px;margin-top:6px">36 MB</p></div>
+      <div style="flex:1.2"><p class="body ink" style="font-size:29px">The answer becomes speech. English only, and fast enough to keep a conversation going.</p></div>
+    </div>
+  </div>
+  <p class="lead r d5s" style="margin-top:40px;font-size:34px">About 2.8 GB in total. <span class="ink">Downloaded once, then nothing leaves the device.</span></p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">20 / 33</span></div>
+</section>
+<section data-label="Section · Build it" class="field blue">
+<div class="field-shape spin" style="right:-220px;top:-160px;width:1000px;height:1000px"><svg viewBox="0 0 100 100" style="fill:rgba(255,255,255,.10)"><use href="#sh-clover8"/></svg></div>
+<div class="field-shape p d2s" style="right:250px;bottom:160px;width:240px;height:240px"><svg viewBox="0 0 100 100" style="fill:#fff"><use href="#sh-cookie9"/></svg></div>
+<div class="pad center">
+  <div class="r"><span class="num">04</span></div>
+  <h2 class="d1 r d1s" style="margin-top:40px">Build it</h2>
+  <p class="lead r d2s" style="color:rgba(255,255,255,.84);margin-top:34px;max-width:960px">The code behind the demo, exactly as it runs.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">21 / 33</span></div>
+</section>
+<section data-label="Code · Setup">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Step 1 · Packages and engine</p>
+  <h2 class="h1 r d1s">Add the packages, <span class="c-blue">then register the engine.</span></h2>
+  <div class="row" style="margin-top:52px;gap:36px;flex:1;align-items:flex-start">
+    <div class="stack r d2s" style="flex:.9;gap:28px">
+      <pre class="code" style=""><div class="file">pubspec.yaml</div><span class="t">dependencies</span>:
+  <span class="t">flutter_edge_ai</span>: <span class="n">^2.1.1</span>
+  <span class="t">flutter_edge_ai_litertlm</span>: <span class="n">^1.10.1</span></pre>
+      <div class="card" style="background:var(--surface)">
+        <div class="h3" style="font-size:36px">Toolchain</div>
+        <p class="body" style="font-size:28px;margin-top:10px">flutter_edge_ai needs <b class="ink">Flutter 3.44+</b> and <b class="ink">Dart 3.12+</b>, because its native libraries come through Native Assets build hooks.</p>
+      </div>
+    </div>
+    <div class="stack r d3s" style="flex:1.1;gap:28px">
+      <pre class="code" style=""><div class="file">main.dart</div><span class="t">Future</span>&lt;<span class="k">void</span>&gt; <span class="f">main</span>() <span class="k">async</span> {
+  <span class="t">WidgetsFlutterBinding</span>.<span class="f">ensureInitialized</span>();
+
+<span class="hl">  <span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">initialize</span>(
+    inferenceEngines: <span class="k">const</span> [<span class="t">LiteRtLmEngine</span>()],
+  );</span>
+
+  <span class="f">runApp</span>(<span class="k">const</span> <span class="t">App</span>());
+}</pre>
+      <p class="body" style="font-size:27px">No Hugging Face token needed. The <code class="code-inline">litert-community</code> build of Gemma 4 E2B is public.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">22 / 33</span></div>
+</section>
+<section data-label="Code · Install and load">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Step 2 · Download, load, open a chat</p>
+  <h2 class="h1 r d1s">Download it once, <span class="c-blue">then load it on the GPU.</span></h2>
+  <div class="row" style="margin-top:44px;gap:36px;flex:1;align-items:flex-start">
+    <div class="r d2s" style="flex:1.25">
+      <pre class="code" style="font-size:22px"><div class="file">gemma_service.dart</div><span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">installModel</span>(
+<span class="hl-y">  modelType: <span class="t">ModelType</span>.gemma4,
+  fileType: <span class="t">ModelFileType</span>.litertlm,</span>
+).<span class="f">fromNetwork</span>(gemma4E2bUrl).<span class="f">withProgress</span>(onProgress)
+ .<span class="f">install</span>();
+
+<span class="k">final</span> model = <span class="k">await</span> <span class="t">FlutterEdgeAi</span>.<span class="f">getActiveModel</span>(
+  maxTokens: <span class="n">4096</span>,
+  preferredBackend: <span class="t">PreferredBackend</span>.gpu,
+  supportImage: <span class="k">true</span>,
+);
+
+<span class="k">final</span> chat = <span class="k">await</span> model.<span class="f">createChat</span>(
+  modelType: <span class="t">ModelType</span>.gemma4,
+  supportImage: <span class="k">true</span>,
+  enableThinking: <span class="k">true</span>,
+);</pre>
+    </div>
+    <div class="stack r d3s" style="flex:.75;gap:24px">
+      <div class="card tight" style="background:var(--surface)">
+        <div class="h3" style="font-size:34px">installModel</div>
+        <p class="body" style="font-size:26px;margin-top:8px">Downloads about 2.6 GB the first time. If the file is already there, it just marks the model as active.</p>
+      </div>
+      <div class="card tight" style="background:var(--surface)">
+        <div class="h3" style="font-size:34px">maxTokens</div>
+        <p class="body" style="font-size:26px;margin-top:8px">This is the <b class="ink">context window</b>: prompt, history and reply combined. To limit the reply, use <code class="code-inline">maxOutputTokens</code>.</p>
+      </div>
+      <div class="card tight" style="background:var(--yellow-lo)">
+        <div class="h3 c-yellow" style="font-size:34px">Watch those two highlighted lines</div>
+        <p class="body ink" style="font-size:26px;margin-top:8px">Get either one wrong and it still compiles — the app fails later, at runtime.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">23 / 33</span></div>
+</section>
+<section data-label="Code · Stream the reply">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Step 3 · Send a message, stream the reply</p>
+  <h2 class="h1 r d1s">Stream the reply <span class="c-blue">as it's written.</span></h2>
+  <div class="row" style="margin-top:44px;gap:36px;flex:1;align-items:flex-start">
+    <div class="r d2s" style="flex:1.2">
+      <pre class="code" style="font-size:23px"><div class="file">chat_screen.dart</div><span class="k">await</span> chat.<span class="f">addQueryChunk</span>(
+  <span class="t">Message</span>.<span class="f">text</span>(text: prompt, isUser: <span class="k">true</span>),
+);
+
+<span class="k">await for</span> (<span class="k">final</span> r <span class="k">in</span> chat.<span class="f">generateChatResponseAsync</span>()) {
+  <span class="k">switch</span> (r) {
+    <span class="k">case</span> <span class="t">TextResponse</span>(:<span class="k">final</span> token):
+      answer += token;
+<span class="hl-y">    <span class="k">case</span> <span class="t">ThinkingResponse</span>(:<span class="k">final</span> content):
+      reasoning += content;</span>
+    <span class="k">case</span> <span class="t">FunctionCallResponse</span>():
+    <span class="k">case</span> <span class="t">ParallelFunctionCallResponse</span>():
+      <span class="k">break</span>;
+  }
+}</pre>
+    </div>
+    <div class="stack r d3s" style="flex:.8;gap:24px">
+      <div class="card" style="background:var(--surface)">
+        <div class="h3" style="font-size:36px">A sealed type</div>
+        <p class="body" style="font-size:27px;margin-top:10px"><code class="code-inline">ModelResponse</code> is sealed, so the switch has to handle every case. A new response type gives you a compile error instead of silently lost tokens.</p>
+      </div>
+      <div class="card" style="background:var(--blue-lo)">
+        <div class="h3 c-blue" style="font-size:36px">Adding an image is one change</div>
+        <pre class="code" style="margin-top:18px;font-size:23px;padding:26px 30px;background:rgba(0,0,0,.35)"><span class="t">Message</span>.<span class="f">withImage</span>(
+  text: <span class="s">'What do you see?'</span>,
+  imageBytes: photo,
+  isUser: <span class="k">true</span>,
+)</pre>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">24 / 33</span></div>
+</section>
+<section data-label="Section · What I learned" class="field yellow">
+<div class="field-shape spin" style="right:-180px;top:-120px;width:980px;height:980px"><svg viewBox="0 0 100 100" style="fill:rgba(32,33,36,.10)"><use href="#sh-cookie12"/></svg></div>
+<div class="field-shape p d2s" style="right:230px;bottom:160px;width:240px;height:240px"><svg viewBox="0 0 100 100" style="fill:#202124"><use href="#sh-clover8"/></svg></div>
+<div class="pad center">
+  <div class="r"><span class="num">05</span></div>
+  <h2 class="d1 r d1s" style="margin-top:40px">What broke</h2>
+  <p class="lead r d2s" style="color:rgba(32,33,36,.74);margin-top:34px;max-width:980px">The parts most talks skip. All of these happened while I was building this app.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">25 / 33</span></div>
+</section>
+<section data-label="Lesson · Speech has a fixed window">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Lesson 1</p>
+  <h2 class="h1 r d1s">Speech models listen <span class="c-red">for a fixed length.</span></h2>
+  <p class="body r d1s" style="margin-top:26px;font-size:30px;max-width:1500px">My first voice turns were cut off mid-sentence, and nothing in the logs said why. A speech-to-text model is exported with one fixed window. Anything longer than that is dropped, quietly.</p>
+  <div class="row" style="margin-top:44px;gap:32px;flex:1">
+    <div class="card r d2s" style="flex:1;background:var(--red-lo);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">Moonshine Tiny</div>
+      <div class="d1" style="font-size:96px;line-height:1;margin-top:18px;color:var(--red-hi)">5s</div>
+      <p class="body ink" style="font-size:27px;margin-top:20px">The filename says it: <code class="code-inline">moonshine_tiny_5s_f32.tflite</code>. Say a sentence and a half, and only the first five seconds reach the model.</p>
+    </div>
+    <div class="card r d3s" style="flex:1;background:var(--green-lo);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">Whisper Tiny</div>
+      <div class="d1" style="font-size:96px;line-height:1;margin-top:18px;color:var(--green-hi)">30s</div>
+      <p class="body ink" style="font-size:27px;margin-top:20px">A 30-second window, and multilingual. That is what makes a real conversational turn possible, so this is what the demo ships.</p>
+    </div>
+    <div class="card r d4s" style="flex:1.1;background:var(--surface);display:flex;flex-direction:column">
+      <div class="h3" style="font-size:36px">What I do now</div>
+      <p class="body" style="font-size:27px;margin-top:20px">Cap the recorder below the window — mine stops at 25 seconds — and show the countdown while it listens. Short audio is padded, so there is no cost to stopping early.</p>
+      <p class="small" style="font-size:24px;margin-top:auto;color:var(--ink-3)">The same holds for whichever model you pick: read the window it was exported with.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">26 / 33</span></div>
+</section>
+<section data-label="Lesson · Small models code-switch">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Lesson 2</p>
+  <h2 class="h1 r d1s">Small models <span class="c-yellow">slip into other languages.</span></h2>
+  <div class="card r d2s" style="margin-top:50px;background:var(--surface-2);padding:48px 56px;border-radius:var(--r-lg) var(--r-lg) var(--r-lg) 12px">
+    <div class="small" style="font-size:23px">An actual reply from the voice demo</div>
+    <p class="lead ink" style="font-size:44px;line-height:1.35;margin-top:16px">Yes, I know about Flutter. It is an open-<span style="background:var(--yellow);color:#202124;padding:0 10px;border-radius:10px">ソース</span> software development kit created by Google…</p>
+  </div>
+  <div class="row" style="margin-top:36px;gap:32px;flex:1">
+    <div class="card r d3s" style="flex:1;background:var(--surface)">
+      <div class="h3" style="font-size:38px">Why</div>
+      <p class="body" style="font-size:28px;margin-top:14px">The model knows the same word in many languages. <span class="ink">ソース</span> is Japanese for “source”, and with loose sampling it can beat the English word.</p>
+    </div>
+    <div class="card r d4s" style="flex:1.25;background:var(--yellow-lo)">
+      <div class="h3 c-yellow" style="font-size:38px">What helped</div>
+      <ul class="body ink" style="font-size:27px;margin:14px 0 0;padding-left:30px;display:flex;flex-direction:column;gap:10px">
+        <li>Tighter sampling, such as temperature 0.7 for chat and 0.3 for voice</li>
+        <li>Say which language to use in the system instruction</li>
+        <li>For speech, remove characters the voice can't pronounce</li>
+      </ul>
+      <p class="small" style="font-size:24px;margin-top:18px;color:var(--yellow-hi)">That made it rare, but it still happens now and then.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">27 / 33</span></div>
+</section>
+<section data-label="Shipped products">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Not a prototype</p>
+  <h2 class="h1 r d1s">Shipping today, <span class="c-green">on-device.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:56px;flex:1">
+    <div class="card r d2s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Pixel Recorder</div>
+      <p class="body" style="font-size:29px">Summarises your recording with Gemini Nano, with no internet connection.</p>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Apple Intelligence</div>
+      <p class="body" style="font-size:29px">Rewrites and summarises your text on a 3-billion-parameter model, on the phone.</p>
+    </div>
+    <div class="card r d4s" style="background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Chrome</div>
+      <p class="body" style="font-size:29px">Gemini Nano built into the browser, reachable from JavaScript.</p>
+    </div>
+    <div class="card r d5s" style="background:var(--green-lo);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:42px 48px">
+      <div class="h2" style="font-size:42px">Google AI Edge Gallery</div>
+      <p class="body ink" style="font-size:29px">Google’s own app. Download a model, turn off your Wi-Fi, and keep chatting. The same Gemma 4 E2B you just watched is in there.</p>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">28 / 33</span></div>
+</section>
+<section data-label="Get started">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Your turn</p>
+  <h2 class="h1 r d1s">Get it running <span class="c-green">tonight.</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:52px">
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--blue);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">1</div><div><div class="h3" style="font-size:36px">Flutter 3.44 or newer</div><p class="body" style="font-size:26px;margin-top:8px">flutter_edge_ai needs Flutter 3.44+ and Dart 3.12+.</p></div></div></div>
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--red);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">2</div><div><div class="h3" style="font-size:36px">Add two packages</div><p class="body" style="font-size:26px;margin-top:8px"><code class="code-inline">flutter pub add flutter_edge_ai flutter_edge_ai_litertlm</code></p></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--yellow);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">3</div><div><div class="h3" style="font-size:36px">Register the engine</div><p class="body" style="font-size:26px;margin-top:8px">Call <code class="code-inline">FlutterEdgeAi.initialize(inferenceEngines: …)</code> in <code class="code-inline">main</code>.</p></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--green);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">4</div><div><div class="h3" style="font-size:36px">Platform setup</div><p class="body" style="font-size:26px;margin-top:8px">iOS 15+. Android: minSdk 30 and arm64. macOS: Apple Silicon, with Swift Package Manager off and the Podfile step from the docs.</p></div></div></div>
+    <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--blue);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">5</div><div><div class="h3" style="font-size:36px">Install Gemma 4 E2B</div><p class="body" style="font-size:26px;margin-top:8px">It's public, so no token. About 2.6 GB, downloaded once.</p></div></div></div>
+    <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;gap:28px;padding:38px 42px"><div style="width:66px;height:66px;border-radius:22px;background:var(--red);color:#0F1114;flex-shrink:0;display:grid;place-items:center;font-size:34px;font-weight:700">6</div><div><div class="h3" style="font-size:36px">Turn off the Wi‑Fi</div><p class="body" style="font-size:26px;margin-top:8px">It keeps working.</p></div></div></div>
+  </div>
+  <p class="small r d5s" style="margin-top:auto;font-size:24px">The codelab on the next slide walks through every one of these steps, including the platform setup.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">29 / 33</span></div>
+</section>
+<section data-label="Codelab">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Build it yourself</p>
+  <h2 class="h1 r d1s">Build this app, <span class="c-green">step by step.</span></h2>
+  <div class="row" style="margin-top:50px;flex:1;gap:70px;align-items:center">
+    <div class="r d2s" style="flex:1">
+      <div style="display:flex;align-items:center;gap:22px;padding:22px 0;border-top:2px solid var(--outline)"><span style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:grid;place-items:center;background:var(--blue);color:#0F1114"><span style="width:26px;height:26px;display:block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span><span class="body ink" style="font-size:32px">16 steps, about 90 minutes</span></div>
+      <div style="display:flex;align-items:center;gap:22px;padding:22px 0;border-top:2px solid var(--outline)"><span style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:grid;place-items:center;background:var(--red);color:#0F1114"><span style="width:26px;height:26px;display:block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span><span class="body ink" style="font-size:32px">Streaming chat, vision, thinking and tool calling</span></div>
+      <div style="display:flex;align-items:center;gap:22px;padding:22px 0;border-top:2px solid var(--outline)"><span style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:grid;place-items:center;background:var(--yellow);color:#0F1114"><span style="width:26px;height:26px;display:block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span><span class="body ink" style="font-size:32px">Setup for Android, iOS and macOS</span></div>
+      <div style="display:flex;align-items:center;gap:22px;padding:22px 0;border-top:2px solid var(--outline)"><span style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:grid;place-items:center;background:var(--green);color:#0F1114"><span style="width:26px;height:26px;display:block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span><span class="body ink" style="font-size:32px">Gemma 4 E2B, with no token and no server</span></div>
+      <div style="border-top:2px solid var(--outline)"></div>
+    </div>
+    <div class="card r d3s" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:28px;padding:48px 56px;flex-shrink:0">
+      <div style="background:#fff;padding:22px;border-radius:34px;box-shadow:0 0 0 7px var(--green)">
+        <img src="assets/qr/codelab.png" alt="" style="width:380px;height:380px;display:block;image-rendering:pixelated">
+      </div>
+      <div style="text-align:center"><div class="h3" style="font-size:36px">Start the codelab</div>
+        <div class="small" style="font-size:24px;margin-top:8px">akanshajain.dev/<wbr>codelabs/<wbr>on-device-ai</div></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">30 / 33</span></div>
+</section>
+<section data-label="Resources">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <p class="kicker r">Scan to open</p>
+  <h2 class="h1 r d1s">Everything from this talk.</h2>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-top:56px">
+    <div class="r d2s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--blue)"><img src="assets/qr/demo.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">The demo app</div><div class="small" style="font-size:19px;margin-top:8px">github.com/<wbr>jakansha2001/<wbr>gemma-on-device-demo</div></div></div></div>
+    <div class="r d3s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--red)"><img src="assets/qr/flutter_edge_ai.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">flutter_edge_ai</div><div class="small" style="font-size:19px;margin-top:8px">pub.dev/<wbr>packages/<wbr>flutter_edge_ai</div></div></div></div>
+    <div class="r d4s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--yellow)"><img src="assets/qr/flutteredge_docs.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">Docs &amp; guides</div><div class="small" style="font-size:19px;margin-top:8px">flutteredge.ai</div></div></div></div>
+    <div class="r d5s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--green)"><img src="assets/qr/gemma4_model.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">Gemma 4 E2B</div><div class="small" style="font-size:19px;margin-top:8px">huggingface.co/<wbr>litert-community</div></div></div></div>
+    <div class="r d6s"><div class="card" style="background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:24px;padding:36px 22px;height:100%"><div style="background:#fff;padding:16px;border-radius:28px;box-shadow:0 0 0 6px var(--blue)"><img src="assets/qr/article.png" alt="" style="width:232px;height:232px;display:block;image-rendering:pixelated"></div><div style="text-align:center"><div class="h3" style="font-size:31px">My article</div><div class="small" style="font-size:19px;margin-top:8px">Why I think on-device AI changes mobile architecture</div></div></div></div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">31 / 33</span></div>
+</section>
+<section data-label="The one sentence">
+<img class="evt-corner" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="field-shape spin" style="right:-260px;bottom:-320px;width:1100px;height:1100px"><svg viewBox="0 0 100 100" style="fill:var(--surface)"><use href="#sh-cookie12"/></svg></div>
+<div class="pad center" style="position:relative">
+  <p class="lead r" style="font-size:52px">On-device AI isn't replacing cloud AI.</p>
+  <p class="r d1s" style="font-size:96px;line-height:1.06;font-weight:650;letter-spacing:-.03em;margin:34px 0 0;max-width:1560px">It's unlocking a different class of app — one that's <span class="c-red">private</span>, <span class="c-green">offline-capable</span>, and <span class="c-yellow">free to scale</span>.</p>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">32 / 33</span></div>
+</section>
+<section data-label="Thank you">
+<img class="evt-title" src="assets/devfest-noida-2026.png" alt="DevFest Noida 2026">
+<div class="pad">
+  <div class="row" style="flex:1;align-items:center;gap:80px">
+    <div style="position:relative;width:560px;height:560px;flex-shrink:0" class="p">
+      <div class="field-shape spin" style="inset:-34px"><svg viewBox="0 0 100 100" style="fill:var(--surface-2)"><use href="#sh-clover8"/></svg></div>
+      <div style="position:absolute;inset:30px"><svg viewBox="0 0 100 100" width="500" height="500" style="display:block;overflow:visible"><defs><clipPath id="hs-thanks"><path d="M98.00,50.00 L97.81,51.25 L97.25,52.48 L96.37,53.65 L95.26,54.76 L94.02,55.80 L92.75,56.77 L91.58,57.71 L90.58,58.63 L89.84,59.57 L89.41,60.56 L89.29,61.64 L89.46,62.82 L89.86,64.11 L90.41,65.51 L91.02,66.99 L91.58,68.51 L91.98,70.03 L92.16,71.48 L92.03,72.82 L91.57,74.00 L90.78,74.99 L89.68,75.77 L88.34,76.35 L86.82,76.75 L85.22,77.03 L83.64,77.24 L82.15,77.46 L80.83,77.76 L79.72,78.21 L78.85,78.85 L78.21,79.72 L77.76,80.83 L77.46,82.15 L77.24,83.64 L77.03,85.22 L76.75,86.82 L76.35,88.34 L75.77,89.68 L74.99,90.78 L74.00,91.57 L72.82,92.03 L71.48,92.16 L70.03,91.98 L68.51,91.58 L66.99,91.02 L65.51,90.41 L64.11,89.86 L62.82,89.46 L61.64,89.29 L60.56,89.41 L59.57,89.84 L58.63,90.58 L57.71,91.58 L56.77,92.75 L55.80,94.02 L54.76,95.26 L53.65,96.37 L52.48,97.25 L51.25,97.81 L50.00,98.00 L48.75,97.81 L47.52,97.25 L46.35,96.37 L45.24,95.26 L44.20,94.02 L43.23,92.75 L42.29,91.58 L41.37,90.58 L40.43,89.84 L39.44,89.41 L38.36,89.29 L37.18,89.46 L35.89,89.86 L34.49,90.41 L33.01,91.02 L31.49,91.58 L29.97,91.98 L28.52,92.16 L27.18,92.03 L26.00,91.57 L25.01,90.78 L24.23,89.68 L23.65,88.34 L23.25,86.82 L22.97,85.22 L22.76,83.64 L22.54,82.15 L22.24,80.83 L21.79,79.72 L21.15,78.85 L20.28,78.21 L19.17,77.76 L17.85,77.46 L16.36,77.24 L14.78,77.03 L13.18,76.75 L11.66,76.35 L10.32,75.77 L9.22,74.99 L8.43,74.00 L7.97,72.82 L7.84,71.48 L8.02,70.03 L8.42,68.51 L8.98,66.99 L9.59,65.51 L10.14,64.11 L10.54,62.82 L10.71,61.64 L10.59,60.56 L10.16,59.57 L9.42,58.63 L8.42,57.71 L7.25,56.77 L5.98,55.80 L4.74,54.76 L3.63,53.65 L2.75,52.48 L2.19,51.25 L2.00,50.00 L2.19,48.75 L2.75,47.52 L3.63,46.35 L4.74,45.24 L5.98,44.20 L7.25,43.23 L8.42,42.29 L9.42,41.37 L10.16,40.43 L10.59,39.44 L10.71,38.36 L10.54,37.18 L10.14,35.89 L9.59,34.49 L8.98,33.01 L8.42,31.49 L8.02,29.97 L7.84,28.52 L7.97,27.18 L8.43,26.00 L9.22,25.01 L10.32,24.23 L11.66,23.65 L13.18,23.25 L14.78,22.97 L16.36,22.76 L17.85,22.54 L19.17,22.24 L20.28,21.79 L21.15,21.15 L21.79,20.28 L22.24,19.17 L22.54,17.85 L22.76,16.36 L22.97,14.78 L23.25,13.18 L23.65,11.66 L24.23,10.32 L25.01,9.22 L26.00,8.43 L27.18,7.97 L28.52,7.84 L29.97,8.02 L31.49,8.42 L33.01,8.98 L34.49,9.59 L35.89,10.14 L37.18,10.54 L38.36,10.71 L39.44,10.59 L40.43,10.16 L41.37,9.42 L42.29,8.42 L43.23,7.25 L44.20,5.98 L45.24,4.74 L46.35,3.63 L47.52,2.75 L48.75,2.19 L50.00,2.00 L51.25,2.19 L52.48,2.75 L53.65,3.63 L54.76,4.74 L55.80,5.98 L56.77,7.25 L57.71,8.42 L58.63,9.42 L59.57,10.16 L60.56,10.59 L61.64,10.71 L62.82,10.54 L64.11,10.14 L65.51,9.59 L66.99,8.98 L68.51,8.42 L70.03,8.02 L71.48,7.84 L72.82,7.97 L74.00,8.43 L74.99,9.22 L75.77,10.32 L76.35,11.66 L76.75,13.18 L77.03,14.78 L77.24,16.36 L77.46,17.85 L77.76,19.17 L78.21,20.28 L78.85,21.15 L79.72,21.79 L80.83,22.24 L82.15,22.54 L83.64,22.76 L85.22,22.97 L86.82,23.25 L88.34,23.65 L89.68,24.23 L90.78,25.01 L91.57,26.00 L92.03,27.18 L92.16,28.52 L91.98,29.97 L91.58,31.49 L91.02,33.01 L90.41,34.49 L89.86,35.89 L89.46,37.18 L89.29,38.36 L89.41,39.44 L89.84,40.43 L90.58,41.37 L91.58,42.29 L92.75,43.23 L94.02,44.20 L95.26,45.24 L96.37,46.35 L97.25,47.52 L97.81,48.75 Z"/></clipPath></defs><image href="assets/headshot.png" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" clip-path="url(#hs-thanks)"/></svg></div>
+    </div>
+    <div class="grow stack">
+      <h2 class="r" style="font-size:176px;line-height:.9;font-weight:700;letter-spacing:-.03em;margin:0;font-variation-settings:'ROND' 100">Thank you</h2>
+      <div class="r d1s" style="margin-top:44px">
+        <div style="font-size:52px;font-weight:600;letter-spacing:-.02em">Akansha Jain</div>
+        <div class="body" style="font-size:30px;margin-top:6px">Senior Software Engineer · AutoNation Inc.</div>
+      </div>
+      <div class="row r d2s" style="margin-top:56px;gap:28px">
+        <div class="card tight" style="background:var(--surface);display:flex;align-items:center;gap:28px;padding:26px 34px 26px 26px">
+          <div style="background:#fff;padding:12px;border-radius:22px"><img src="assets/qr/website.png" alt="" style="width:170px;height:170px;display:block;image-rendering:pixelated"></div>
+          <div><div class="small" style="font-size:23px">Website</div><div class="h3" style="font-size:36px">akanshajain.dev</div></div>
+        </div>
+        <div class="card tight" style="background:var(--surface);display:flex;align-items:center;gap:28px;padding:26px 34px 26px 26px">
+          <div style="background:#fff;padding:12px;border-radius:22px"><img src="assets/qr/linkedin.png" alt="" style="width:170px;height:170px;display:block;image-rendering:pixelated"></div>
+          <div><div class="small" style="font-size:23px">Connect</div><div class="h3" style="font-size:36px">LinkedIn</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span class="mark"><span class="g4"><i></i><i></i><i></i><i></i></span>Building On-Device AI Apps with Flutter &amp; Gemma</span><span class="pg">33 / 33</span></div>
+</section>
+</deck-stage>
+
+<script>
+/* Media: load every recording, show the "recording needed" card when a file is
+   missing, and restart the active slide's video on every visit. */
+(() => {
+  const deck = document.querySelector('deck-stage');
+
+  document.querySelectorAll('[data-src]').forEach((el) => {
+    const note = el.parentElement.querySelector('.asset-needed');
+    el.addEventListener('error', () => note && note.classList.add('show'));
+    el.addEventListener(el.tagName === 'VIDEO' ? 'loadeddata' : 'load',
+      () => note && note.classList.remove('show'));
+    el.src = el.dataset.src;
+  });
+
+  const play = (slide) => {
+    if (!slide) return;
+    slide.querySelectorAll('video').forEach((v) => {
+      try { v.currentTime = 0; } catch (e) {}
+      const attempt = v.play();
+      if (!attempt) return;
+      // The voice demo plays with sound. Browsers block unmuted autoplay until
+      // the page has had a key press or click — advancing the slide counts —
+      // so fall back to muted rather than showing a frozen frame.
+      attempt.catch(() => {
+        if (v.hasAttribute('data-audio')) { v.muted = true; v.play().catch(() => {}); }
+      });
+    });
+  };
+  const pause = (slide) => slide && slide.querySelectorAll('video').forEach((v) => v.pause());
+
+  deck.addEventListener('slidechange', (e) => {
+    pause(e.detail.previousSlide);
+    play(e.detail.slide);
+  });
+  window.addEventListener('load', () => play(document.querySelector('section[data-deck-active]')));
+})();
+</script>
+</body>
+</html>

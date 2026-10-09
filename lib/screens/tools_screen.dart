@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:gemma_vision_demo/gemma/demo_tools.dart';
 import 'package:gemma_vision_demo/gemma/gemma_failure.dart';
 import 'package:gemma_vision_demo/gemma/gemma_service.dart';
@@ -208,6 +208,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
   @override
   Widget build(BuildContext context) {
     final accent = _workspace.accent;
+    // Padding, not a constrained box: a list inside a narrow box puts its
+    // scrollbar in the middle of a wide window.
+    final inset = pageInset(MediaQuery.sizeOf(context).width);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -246,7 +249,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
             ? ErrorView(failure: _failure!, onRetry: _init)
             : Column(
                 children: [
-                  if (_workspace.tasks.isNotEmpty) _TaskStrip(workspace: _workspace),
+                  if (_workspace.tasks.isNotEmpty)
+                    _TaskStrip(workspace: _workspace, inset: inset),
                   Expanded(
                     child: _entries.isEmpty && _liveText.isEmpty
                         ? EmptyView(
@@ -278,7 +282,12 @@ class _ToolsScreenState extends State<ToolsScreen> {
                                 child: SelectionArea(
                                   child: ListView.builder(
                                     controller: _scroll,
-                                    padding: const EdgeInsets.all(16),
+                                    padding: EdgeInsets.fromLTRB(
+                                      inset,
+                                      16,
+                                      inset,
+                                      16,
+                                    ),
                                     itemCount:
                                         _entries.length + (_generating ? 1 : 0),
                                     itemBuilder: (_, i) => i < _entries.length
@@ -307,6 +316,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     hintText: 'Ask it to do something…',
                     busyHintText: 'Working…',
                     onSend: _send,
+                    inset: inset,
                   ),
                 ],
               ),
@@ -318,15 +328,19 @@ class _ToolsScreenState extends State<ToolsScreen> {
 /// Live view of the state the tools mutate — the point being that the model
 /// changed real app state, not just text.
 class _TaskStrip extends StatelessWidget {
-  const _TaskStrip({required this.workspace});
+  const _TaskStrip({required this.workspace, required this.inset});
 
   final ToolWorkspace workspace;
+
+  /// Matches the transcript's padding, so the chips start on the same line as
+  /// the messages below them.
+  final double inset;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: EdgeInsets.fromLTRB(inset, 10, inset, 12),
       decoration: const BoxDecoration(
         color: AppColors.bgElevated,
         border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -338,18 +352,15 @@ class _TaskStrip extends StatelessWidget {
             children: [
               const Icon(
                 Icons.checklist_rtl,
-                size: 14,
+                size: 15,
                 color: AppColors.textTertiary,
               ),
               Gap.wSm,
               Text(
-                'TASK LIST THE MODEL MANAGES '
-                '(${workspace.openCount} pending / '
-                '${workspace.tasks.length} total)',
-                style: AppText.caption.copyWith(
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w700,
-                ),
+                'Task list the model manages · '
+                '${workspace.openCount} pending, '
+                '${workspace.tasks.length} total',
+                style: AppText.caption.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -365,12 +376,18 @@ class _TaskStrip extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: (task.done ? AppColors.success : AppColors.tool)
-                        .withValues(alpha: .12),
+                    color:
+                        (task.done
+                                ? AppColors.textTertiary
+                                : AppColors.accentBright)
+                            .withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                     border: Border.all(
-                      color: (task.done ? AppColors.success : AppColors.tool)
-                          .withValues(alpha: .3),
+                      color:
+                          (task.done
+                                  ? AppColors.textTertiary
+                                  : AppColors.accentBright)
+                              .withValues(alpha: .32),
                     ),
                   ),
                   child: Row(
@@ -380,8 +397,10 @@ class _TaskStrip extends StatelessWidget {
                         task.done
                             ? Icons.check_circle
                             : Icons.radio_button_unchecked,
-                        size: 12,
-                        color: task.done ? AppColors.success : AppColors.tool,
+                        size: 14,
+                        color: task.done
+                            ? AppColors.success
+                            : AppColors.accentBright,
                       ),
                       Gap.wSm,
                       ConstrainedBox(
@@ -393,7 +412,7 @@ class _TaskStrip extends StatelessWidget {
                             color: task.done
                                 ? AppColors.textTertiary
                                 : AppColors.textPrimary,
-                            fontSize: 12.5,
+                            fontSize: 14,
                             decoration: task.done
                                 ? TextDecoration.lineThrough
                                 : null,

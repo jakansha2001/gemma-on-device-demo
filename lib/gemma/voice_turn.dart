@@ -55,12 +55,12 @@ class VoiceTurnFailed extends VoiceTurnEvent {
 
 /// Runs one voice turn: transcribe → generate → speak.
 ///
-/// **Why this does not use `VoiceSession`.** flutter_gemma_speech ships
+/// **Why this does not use `VoiceSession`.** flutter_edge_ai_speech ships
 /// `VoiceSession.fromChat`, which runs this chain in one call.
 /// `SpeechSynthesizer.synthesize` is batch ("full text → full audio", per its
 /// own dartdoc), and by default `VoiceSession` speaks once the whole reply is
 /// ready, which leaves dead air after the text finishes printing.
-/// `VoiceSession.fromChat(..., streamAudio: true)` (flutter_gemma_speech 0.4.3+)
+/// `VoiceSession.fromChat(..., streamAudio: true)` (flutter_edge_ai_speech 0.4.3+)
 /// avoids that by speaking clause by clause. This class was written before that
 /// option was noticed; for new code, try `streamAudio: true` first.
 ///
@@ -121,9 +121,21 @@ class VoiceTurn {
   /// makes a hands-free loop talk to itself forever: it "hears" nothing,
   /// answers anyway, and the reply re-triggers the next turn.
   static final _noiseTranscripts = {
-    '', 'you', 'thank you', 'thanks for watching', 'bye',
-    '[blank_audio]', '(blank_audio)', 'blank audio', '[silence]',
-    '(silence)', '[music]', '(music)', '[noise]', '.', '...',
+    '',
+    'you',
+    'thank you',
+    'thanks for watching',
+    'bye',
+    '[blank_audio]',
+    '(blank_audio)',
+    'blank audio',
+    '[silence]',
+    '(silence)',
+    '[music]',
+    '(music)',
+    '[noise]',
+    '.',
+    '...',
   };
 
   static bool isNoise(String transcript) {

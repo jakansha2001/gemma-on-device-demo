@@ -1,5 +1,5 @@
 name: gemma_vision_demo
-description: "On-device AI showcase: vision, thinking, function calling and a full voice loop, running entirely offline via flutter_gemma."
+description: "On-device AI showcase: vision, thinking, function calling and a full voice loop, running entirely offline via flutter_edge_ai."
 publish_to: 'none'
 
 version: 2.0.0+1
@@ -14,17 +14,18 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # --- flutter_gemma 1.x is modular ---------------------------------------
-  # `flutter_gemma` is only the core: it registers NO inference engine on its
-  # own, so an app must add the engine package(s) for the model formats it
-  # ships and wire them in FlutterGemma.initialize(). We ship exactly one
-  # format (.litertlm), which covers Android + iOS + macOS from a single model
-  # file — so no flutter_gemma_mediapipe, and no MediaPipe native weight.
-  flutter_gemma: ^1.8.0
-  flutter_gemma_litertlm: ^1.6.3
+  # --- flutter_edge_ai is modular -----------------------------------------
+  # `flutter_edge_ai` (the package formerly called flutter_gemma; renamed in
+  # 2.0.0) is only the core: it registers NO inference engine on its own, so
+  # an app must add the engine package(s) for the model formats it ships and
+  # wire them in FlutterEdgeAi.initialize(). We ship exactly one format
+  # (.litertlm), which covers Android + iOS + macOS from a single model file —
+  # so no flutter_edge_ai_mediapipe, and no MediaPipe native payload.
+  flutter_edge_ai: ^2.1.1
+  flutter_edge_ai_litertlm: ^1.10.1
   # STT + TTS + the VoiceSession loop. Native only; rides on litertlm's
   # bundled native library, so it adds no second copy of libLiteRtLm.
-  flutter_gemma_speech: ^0.5.0
+  flutter_edge_ai_speech: ^0.5.4
 
   # Renders the model's markdown. `flutter_markdown` is discontinued as of
   # 2025; gpt_markdown is actively maintained and built for LLM output, which
@@ -50,3 +51,36 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # The demo has its own identity, on purpose: the slides are Google Sans on a
+  # cool near-black, so an app that looked the same dissolved into the slide
+  # behind it when a recording was dropped into a laptop mockup. Bricolage
+  # Grotesque sets the headings (personality where it is looked at), Inter
+  # sets everything that is actually read, and JetBrains Mono sets code and
+  # JSON. All three are SIL Open Font License 1.1 — the licence text ships
+  # beside the files.
+  #
+  # They are bundled rather than fetched at runtime (as the google_fonts
+  # package does) because this app's whole claim is that it touches the
+  # network exactly once, for the model.
+  fonts:
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-600.ttf
+          weight: 600
+        - asset: assets/fonts/BricolageGrotesque-700.ttf
+          weight: 700
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-400.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 600
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-400.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-500.ttf
+          weight: 500

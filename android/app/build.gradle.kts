@@ -24,7 +24,10 @@ android {
         applicationId = "com.example.gemma_vision_demo"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 26
+        // flutter_edge_ai requires API 30 for `.litertlm` inference, LiteRT
+        // embeddings and speech. Below that the engine cannot load at all, so
+        // this is a floor, not a preference.
+        minSdk = 30
         // The .litertlm engine is dart:ffi over LiteRT-LM, and the plugin
         // ships arm64 prebuilts only. Restricting the build stops the Play
         // Store from offering a broken APK to x86_64/armeabi-v7a devices, and

@@ -64,15 +64,15 @@ class _PipelineStep extends StatelessWidget {
       opacity: active || done ? 1 : .45,
       child: Column(
         children: [
-          Icon(icon, size: 17, color: color),
+          Icon(icon, size: 19, color: color),
           Gap.xs,
           Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: color,
-              fontSize: 10,
-              letterSpacing: .4,
+              fontSize: 13,
+              letterSpacing: .2,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -106,9 +106,9 @@ class VoicePanel extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 10,
-              letterSpacing: 1.6,
-              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              letterSpacing: .2,
+              fontWeight: FontWeight.w700,
             ),
           ),
           Gap.sm,
@@ -202,19 +202,19 @@ class ModeToggle extends StatelessWidget {
                         m == VoiceMode.pushToTalk
                             ? Icons.touch_app_outlined
                             : Icons.hearing,
-                        size: 13,
+                        size: 14,
                         color: m == mode
-                            ? Colors.white
+                            ? AppColors.onAccent
                             : AppColors.textTertiary,
                       ),
                       const SizedBox(width: 5),
                       Text(
                         m.label,
                         style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                           color: m == mode
-                              ? Colors.white
+                              ? AppColors.onAccent
                               : AppColors.textTertiary,
                         ),
                       ),
@@ -274,7 +274,8 @@ class MicControl extends StatelessWidget {
 
   bool get _armed => stage == VoiceStage.armed;
   bool get _recording => stage == VoiceStage.recording;
-  bool get _busy => stage == VoiceStage.transcribing || stage == VoiceStage.thinking;
+  bool get _busy =>
+      stage == VoiceStage.transcribing || stage == VoiceStage.thinking;
   bool get _speaking => stage == VoiceStage.speaking;
 
   String get _caption {
@@ -287,15 +288,17 @@ class MicControl extends StatelessWidget {
     // In hands-free the countdown is a lie: the silence detector almost
     // always ends the turn long before the cap. Show elapsed time and say
     // what actually ends it.
-    VoiceStage.recording => mode == VoiceMode.handsFree
-        ? 'Listening · ${elapsed.inSeconds}s — pause when you are done'
-        : 'Recording · ${elapsed.inSeconds}s / ${maxDuration.inSeconds}s',
+    VoiceStage.recording =>
+      mode == VoiceMode.handsFree
+          ? 'Listening · ${elapsed.inSeconds}s — pause when you are done'
+          : 'Recording · ${elapsed.inSeconds}s / ${maxDuration.inSeconds}s',
     VoiceStage.transcribing => 'Transcribing on-device…',
     VoiceStage.thinking => 'Gemma is composing a reply…',
     VoiceStage.speaking => 'Speaking — tap to interrupt',
-    VoiceStage.idle => mode == VoiceMode.handsFree
-        ? 'Paused — tap to listen again'
-        : 'Tap to speak',
+    VoiceStage.idle =>
+      mode == VoiceMode.handsFree
+          ? 'Paused — tap to listen again'
+          : 'Tap to speak',
   };
 
   /// Map dBFS (roughly -60 quiet … 0 full scale) onto 0..1 for the meter.
@@ -379,22 +382,17 @@ class MicControl extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _recording
-                    ? AppColors.danger
-                    : _speaking
+                    ? AppColors.recording
+                    : _speaking || _busy || preparing
                     ? AppColors.surfaceHigh
-                    : null,
-                gradient: !_recording && !_speaking && !_busy
-                    ? const LinearGradient(
-                        colors: [AppColors.voice, Color(0xFFB33C6E)],
-                      )
-                    : null,
+                    : AppColors.voice,
                 border: _armed
                     ? Border.all(color: Colors.white24, width: 2)
                     : null,
                 boxShadow: _recording
                     ? [
                         BoxShadow(
-                          color: AppColors.danger.withValues(alpha: .45),
+                          color: AppColors.recording.withValues(alpha: .45),
                           blurRadius: 28,
                           spreadRadius: 4,
                         ),
@@ -428,7 +426,9 @@ class MicControl extends StatelessWidget {
                           ? Icons.hearing
                           : Icons.mic_rounded,
                       size: 32,
-                      color: Colors.white,
+                      color: _recording || _speaking
+                          ? Colors.white
+                          : AppColors.onAccent,
                     ),
             ),
           ),
@@ -485,7 +485,10 @@ class _LevelMeter extends StatelessWidget {
               height: 6,
               width: constraints.maxWidth * level,
               decoration: BoxDecoration(
-                color: active ? AppColors.danger : AppColors.voice,
+                // Green while the level is above the trigger, matching the
+                // "pause detected" cue below it: green means the app is
+                // hearing you.
+                color: active ? AppColors.success : AppColors.voice,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),

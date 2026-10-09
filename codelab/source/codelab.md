@@ -3,7 +3,7 @@ id: flutter-gemma-on-device
 categories: Flutter, AI, Gemma
 environments: Web
 status: Published
-feedback link: https://github.com/jakansha2001/flutter-gemma-demo/issues
+feedback link: https://github.com/jakansha2001/gemma-on-device-demo/issues
 authors: Akansha Jain
 
 # Building On-Device AI Apps with Flutter and Gemma
@@ -13,7 +13,7 @@ Duration: 0:04:00
 
 In this codelab you build a Flutter app that runs **Gemma 4 E2B**, Google's open model, entirely on the device. Once the model is downloaded, every token is generated on the phone or laptop in your hand. Nothing is sent to a server, there is no API key, and the app keeps working in airplane mode.
 
-The app uses [flutter_gemma](https://pub.dev/packages/flutter_gemma), a Flutter plugin that loads `.litertlm` models through Google's LiteRT-LM runtime.
+The app uses [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai), a Flutter plugin that loads `.litertlm` models through Google's LiteRT-LM runtime.
 
 ### What you'll build
 
@@ -26,7 +26,7 @@ A small app with four on-device features:
 
 ### What you'll learn
 
-* How flutter_gemma 1.x is split into a core package and opt-in engine packages
+* How flutter_edge_ai splits a small core from opt-in engine packages
 * How to download a 2.6 GB model once, with progress, and load it onto the GPU
 * How to stream text, send images, show reasoning tokens, and run a function-calling loop
 * The platform setup Android, iOS and macOS each need
@@ -34,35 +34,38 @@ A small app with four on-device features:
 
 ### What you'll need
 
-* Flutter **3.44 or newer** (flutter_gemma 1.x requires Dart 3.12+)
+* Flutter **3.44 or newer** (flutter_edge_ai needs Dart 3.12+)
 * An IDE such as VS Code or Android Studio
 * About **3 GB of free space on the test device** for the model, and a fast connection for the first download
 * One of:
-  * A physical **Android** phone with an arm64 CPU. Recent, high-memory phones work best.
+  * A physical **Android** phone with an arm64 CPU, running **Android 11 (API 30) or newer**. Recent, high-memory phones work best.
   * A physical **iPhone** and a Mac with Xcode
   * An **Apple Silicon Mac**, to run the app as a macOS desktop app
 
 > aside negative
 > The model is loaded entirely into memory. On phones with little RAM the operating system can kill the app while the model loads. If that happens, try a device with more memory.
 
-## What's new in flutter_gemma 1.x
+## How the pieces fit together
 Duration: 0:05:00
 
-If you used flutter_gemma 0.x (for example with Gemma 3n), a few things work differently now. This section explains why the code in this codelab looks the way it does.
+Three things about this stack explain why the code below looks the way it does.
 
 ### The package is modular
 
-`flutter_gemma` is now a **core** package: model management, chat sessions and the response types. It ships without an inference engine. You add the engine you need and register it at startup:
+`flutter_edge_ai` is a **core** package: model management, chat sessions and the response types. It ships without an inference engine. You add the engine you need and register it at startup:
 
 | Package | What it adds |
 |---|---|
-| `flutter_gemma_litertlm` | Runs `.litertlm` models through LiteRT-LM. Used in this codelab. |
-| `flutter_gemma_mediapipe` | Runs older `.task` / `.bin` models through MediaPipe |
-| `flutter_gemma_speech` | On-device speech-to-text and text-to-speech |
-| `flutter_gemma_rag_sqlite`, `flutter_gemma_rag_qdrant` | Vector stores for on-device RAG |
-| `flutter_gemma_agent` | Skills the model can run through function calling |
+| `flutter_edge_ai_litertlm` | Runs `.litertlm` models through LiteRT-LM. Used in this codelab. |
+| `flutter_edge_ai_mediapipe` | Runs older `.task` / `.bin` models through MediaPipe |
+| `flutter_edge_ai_speech` | On-device speech-to-text and text-to-speech |
+| `flutter_edge_ai_sqlite`, `flutter_edge_ai_qdrant` | Vector stores for on-device RAG |
+| `flutter_edge_ai_agent` | Skills the model can run through function calling |
 
 Your app only bundles the native libraries for the packages you add.
+
+> aside positive
+> **Searching and finding `flutter_gemma`?** That's this package under its old name. Posts and answers written for it still apply; the class is `FlutterEdgeAi` now, and `dart fix --apply` renames the old symbols for you.
 
 ### Gemma 4 E2B, no token required
 
@@ -83,7 +86,7 @@ Duration: 0:05:00
 flutter --version
 ```
 
-You need Flutter **3.44.0 or newer**. That's the minimum flutter_gemma 1.x declares, together with Dart 3.12. The packages use Dart build hooks (Native Assets) to download and bundle the LiteRT-LM native libraries when you build.
+You need Flutter **3.44.0 or newer**. That's what flutter_edge_ai declares, together with Dart 3.12. The packages use Dart build hooks (Native Assets) to download and bundle the LiteRT-LM native libraries when you build.
 
 If you're on an older version, upgrade:
 
@@ -118,7 +121,7 @@ cd gemma_codelab
 Add the three packages this app needs:
 
 ```bash
-flutter pub add flutter_gemma flutter_gemma_litertlm image_picker
+flutter pub add flutter_edge_ai flutter_edge_ai_litertlm image_picker
 ```
 
 Your `pubspec.yaml` dependencies now look like this (patch versions may be newer):
@@ -128,15 +131,15 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flutter_gemma: ^1.8.1
-  flutter_gemma_litertlm: ^1.6.3
+  flutter_edge_ai: ^2.1.1
+  flutter_edge_ai_litertlm: ^1.10.1
   image_picker: ^1.2.3
 ```
 
 | Package | Why |
 |---|---|
-| `flutter_gemma` | Model download, chat sessions, response types |
-| `flutter_gemma_litertlm` | The engine that runs `.litertlm` models on the GPU |
+| `flutter_edge_ai` | Model download, chat sessions, response types |
+| `flutter_edge_ai_litertlm` | The engine that runs `.litertlm` models on the GPU |
 | `image_picker` | Choosing a photo for the vision step |
 
 Delete the default widget test. It refers to the counter app you're about to replace:
@@ -150,27 +153,29 @@ Duration: 0:05:00
 
 Skip this step if you're not targeting Android.
 
-### Restrict the build to arm64
+### Set the minimum SDK and restrict the build to arm64
 
-The `.litertlm` engine only ships arm64 libraries. Restricting the ABI stops you from building an APK that installs on an unsupported device and then crashes when the engine starts.
+`.litertlm` inference needs **API 30**, and the engine only ships arm64 libraries. Setting both here means an unsupported device can't install the app and then crash when the engine starts.
 
-Open `android/app/build.gradle.kts` and add `ndk` to `defaultConfig`:
+Open `android/app/build.gradle.kts` and edit `defaultConfig`:
 
 ```kotlin
 defaultConfig {
-    // ...keep the generated values (applicationId, minSdk, and so on)...
+    // ...keep the generated values (applicationId, targetSdk, and so on)...
+    minSdk = 30
     ndk { abiFilters += listOf("arm64-v8a") }
 }
 ```
 
 ### Update the manifest
 
-Replace `android/app/src/main/AndroidManifest.xml` with the version below. It's the default Flutter manifest, without the generated comments, plus four additions:
+Replace `android/app/src/main/AndroidManifest.xml` with the version below. It's the default Flutter manifest, without the generated comments, plus three additions:
 
 1. **`INTERNET`** in the main manifest. Flutter only adds it to debug builds by default, and a release build needs it to download the model.
 2. **Foreground download permissions.** The model downloads with `foreground: true`, which shows a progress notification and keeps a long download running.
-3. **The `SystemForegroundService` override.** On Android 14+ (API 34), a foreground download crashes without `foregroundServiceType="dataSync"`. flutter_gemma leaves this to the app on purpose because `FOREGROUND_SERVICE_DATA_SYNC` is a Play-sensitive permission.
-4. **Native GPU libraries.** These let the GPU backend load the vendor's OpenCL driver.
+3. **The `SystemForegroundService` override.** On Android 14+ (API 34), a foreground download crashes without `foregroundServiceType="dataSync"`. flutter_edge_ai leaves this to the app on purpose because `FOREGROUND_SERVICE_DATA_SYNC` is a Play-sensitive permission.
+
+The GPU entries that let the engine load the vendor's OpenCL driver come from the package's own manifest and are merged in for you, so there is nothing to add for them.
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -212,11 +217,6 @@ Replace `android/app/src/main/AndroidManifest.xml` with the version below. It's 
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <!-- GPU backend: vendor OpenCL driver -->
-        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
     </application>
     <queries>
         <intent>
@@ -237,14 +237,14 @@ Skip this step if you're not targeting iOS.
 
 ### Deployment target
 
-flutter_gemma needs **iOS 15.0** or later. Projects created with Flutter 3.47 already target 15.0. To check, open `ios/Runner.xcworkspace` in Xcode, select the **Runner** target, and look at **Minimum Deployments**.
+flutter_edge_ai needs **iOS 15.0** or later. Projects created with Flutter 3.47 already target 15.0. To check, open `ios/Runner.xcworkspace` in Xcode, select the **Runner** target, and look at **Minimum Deployments**.
 
 > aside positive
-> New Flutter projects use Swift Package Manager and have no `Podfile`. flutter_gemma works without one on iOS. Set the deployment target on the Runner target, as above.
+> New Flutter projects use Swift Package Manager and have no `Podfile`. flutter_edge_ai works without one on iOS. Set the deployment target on the Runner target, as above.
 
 ### Info.plist
 
-Open `ios/Runner/Info.plist` and add these keys inside the top-level `dict` element. The camera and photo library descriptions are required by `image_picker`. `UIFileSharingEnabled` is part of flutter_gemma's iOS setup.
+Open `ios/Runner/Info.plist` and add these keys inside the top-level `dict` element. The camera and photo library descriptions are required by `image_picker`. `UIFileSharingEnabled` is part of flutter_edge_ai's iOS setup.
 
 ```xml
 <key>NSCameraUsageDescription</key>
@@ -296,79 +296,112 @@ macOS apps run in a sandbox. Add these keys to **both** `macos/Runner/DebugProfi
 | Key | Why |
 |---|---|
 | `network.client` | Outbound connections, for the one-time model download |
-| `cs.disable-library-validation` | Lets the app load the LiteRT-LM GPU libraries that flutter_gemma copies into the bundle |
+| `cs.disable-library-validation` | Lets the app load the LiteRT-LM GPU libraries that flutter_edge_ai copies into the bundle |
 | `files.user-selected.read-only` | Lets `image_picker` open a photo you choose |
 
-### Copy the GPU libraries into the app
+### Stage the GPU libraries into the app
 
-On macOS, LiteRT-LM depends on companion libraries (`libGemmaModelConstraintProvider.dylib` and `libLiteRtMetalAccelerator.dylib`) that Native Assets can't bundle. `flutter_gemma_litertlm` installs a script that copies them into your `.app` and fixes the engine's reference to them. Your Xcode project needs to run that script after each build.
+On macOS, LiteRT-LM depends on two companion libraries (`libGemmaModelConstraintProvider.dylib` and `libLiteRtLmMetalAccelerator.dylib`) that the build hook can't bundle automatically. `flutter_edge_ai_litertlm` ships a script that copies them into your `.app` and fixes the engine's reference to them, and your build has to run it.
 
 > aside negative
-> Without this step the app builds, but LiteRT-LM references `@rpath/libGemmaModelConstraintProvider.dylib` and that file isn't in the bundle, so the engine fails to load.
+> Without this step the app still builds. It fails at the first model load, with `Library not loaded: @rpath/libGemmaModelConstraintProvider.dylib`. A successful build does not tell you this step worked.
 
-**If your project has a Podfile** (`macos/Podfile`), follow the `post_install` block in the [flutter_gemma README](https://pub.dev/packages/flutter_gemma).
+The script runs from an Xcode build phase, which CocoaPods adds for you. Turn off Swift Package Manager for the app so that `macos/Podfile` is generated. Add this to `pubspec.yaml`:
 
-**If it doesn't** (the default for new projects, which use Swift Package Manager), add a Run Script phase in Xcode:
+```yaml
+flutter:
+  uses-material-design: true
+  config:
+    enable-swift-package-manager: false
+```
 
-1. Open `macos/Runner.xcworkspace` in Xcode.
-2. Select the **Runner** project, then the **Runner** target, then **Build Phases**.
-3. Click **+** and choose **New Run Script Phase**. Make sure it's the **last** phase, after *Bundle Framework*.
-4. Rename it to `Stage flutter_gemma libraries`.
-5. Paste this script:
+Then regenerate the macOS project files:
 
 ```bash
-set -e
-STAGER="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh"
-sh "${STAGER}" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
-touch "${SCRIPT_OUTPUT_FILE_0}"
+flutter pub get
 ```
 
-6. Under **Input Files**, add:
+Open `macos/Podfile` and replace its `post_install` block with this one:
 
-```text
-$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
+  end
+
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
+
+      # Only the app target has a Contents/Frameworks to patch. On any other
+      # target the phase creates an Xcode dependency cycle, so drop it there.
+      unless user_target.name == 'Runner'
+        user_target.build_phases
+          .select { |p| p.respond_to?(:name) && p.name == phase_name }
+          .each { |p| user_target.build_phases.delete(p) }
+        next
+      end
+
+      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
+      phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # Flutter re-copies the raw engine binary on every build. Declaring it as
+      # an input makes this phase run again afterwards, so the app never ships
+      # an unpatched engine.
+      phase.input_paths = [
+        '$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm',
+      ]
+      phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
+      phase.shell_script = <<~SHELL
+        set -e
+        STAGER="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh"
+        if [ ! -f "${STAGER}" ]; then
+          echo "ERROR: ${STAGER} not found. Run: flutter clean && flutter pub get" >&2
+          exit 1
+        fi
+        sh "${STAGER}" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
+        mkdir -p "$(dirname "${SCRIPT_OUTPUT_FILE_0}")"
+        touch "${SCRIPT_OUTPUT_FILE_0}"
+      SHELL
+    end
+  end
+end
 ```
 
-7. Under **Output Files**, add:
+> aside positive
+> The cache folder really is called `flutter_gemma`: the package was renamed, and this path was not. The build hook writes the stager and the dylibs there, and the phase name matches what the tooling expects, so leave both strings exactly as they are.
 
-```text
-$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp
-```
-
-The input file makes Xcode rerun the script whenever Flutter copies a fresh, unpatched engine library into the app. The output file lets Xcode schedule the phase correctly.
-
-Build once to confirm it works:
+Build once and check that the staging worked:
 
 ```bash
 flutter build macos --debug
 ls build/macos/Build/Products/Debug/gemma_codelab.app/Contents/Frameworks
 ```
 
-You should see `GemmaModelConstraintProvider.framework` and `LiteRtMetalAccelerator.framework` next to `LiteRtLm.framework`.
+You should see `GemmaModelConstraintProvider.framework` and `LiteRtLmMetalAccelerator.framework` next to `LiteRtLm.framework`.
 
 > aside positive
-> The script lives in `~/Library/Caches/flutter_gemma` and is written there by the package's build hook when you build. If Xcode reports that it's missing, run `flutter clean && flutter pub get` and build again.
+> **Already have a `macos/Podfile`** for another plugin? Then leave Swift Package Manager on and just add the block above to the Podfile you have.
 
-## Initialize flutter_gemma
+## Initialize flutter_edge_ai
 Duration: 0:03:00
 
-flutter_gemma's core doesn't know how to run a model until you register an engine. You do that once, before `runApp`.
+flutter_edge_ai's core doesn't know how to run a model until you register an engine. You do that once, before `runApp`.
 
 Replace `lib/main.dart`:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
 import 'download_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // flutter_gemma's core ships without an inference engine. Register the
+  // flutter_edge_ai's core ships without an inference engine. Register the
   // engine package you added: LiteRtLmEngine runs .litertlm models.
-  await FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
+  await FlutterEdgeAi.initialize(inferenceEngines: const [LiteRtLmEngine()]);
 
   runApp(const GemmaApp());
 }
@@ -391,7 +424,7 @@ class GemmaApp extends StatelessWidget {
 }
 ```
 
-`FlutterGemma.initialize` sets up model storage and the download service, and `inferenceEngines` registers the engines you added. `LiteRtLmEngine` handles every `.litertlm` model.
+`FlutterEdgeAi.initialize` sets up model storage and the download service, and `inferenceEngines` registers the engines you added. `LiteRtLmEngine` handles every `.litertlm` model.
 
 > aside negative
 > If you forget `inferenceEngines`, installing works but loading the model fails, because no registered engine can open the file.
@@ -408,7 +441,7 @@ The model file is about 2.6 GB. Downloading it inside a build would make the app
 Create `lib/gemma_service.dart`. It keeps the model URL, the install call and the loaded model in one place:
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// One place for everything model-related, so screens don't repeat it.
 class GemmaService {
@@ -426,13 +459,13 @@ class GemmaService {
   static InferenceModel? _model;
 
   /// Whether the model file is already on this device.
-  static Future<bool> isInstalled() => FlutterGemma.isModelInstalled(modelFile);
+  static Future<bool> isInstalled() => FlutterEdgeAi.isModelInstalled(modelFile);
 
   /// Downloads the model once and marks it as the active model.
   static Future<void> install({
     required void Function(int percent) onProgress,
   }) {
-    return FlutterGemma.installModel(
+    return FlutterEdgeAi.installModel(
           modelType: ModelType.gemma4,
           fileType: ModelFileType.litertlm,
         )
@@ -445,7 +478,7 @@ class GemmaService {
 
   /// Loads the weights onto the GPU. This is slow, so it only happens once.
   static Future<InferenceModel> loadModel() async {
-    return _model ??= await FlutterGemma.getActiveModel(
+    return _model ??= await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,
@@ -457,7 +490,7 @@ class GemmaService {
 
 Three details in this file matter:
 
-* **`fileType: ModelFileType.litertlm`.** flutter_gemma doesn't infer the format from the file extension. Without it the install is recorded as a MediaPipe `.task` model, and the LiteRT-LM engine never picks it up.
+* **`fileType: ModelFileType.litertlm`.** flutter_edge_ai doesn't infer the format from the file extension. Without it the install is recorded as a MediaPipe `.task` model, and the LiteRT-LM engine never picks it up.
 * **`modelType: ModelType.gemma4`** selects Gemma 4's prompt format, including its native tool-call tokens.
 * **`maxTokens: 4096`** is the *context window*: the prompt, the history and the reply together. Larger windows use more memory. `getActiveModel` is slow the first time, so `loadModel` keeps the instance in `_model` and reuses it.
 
@@ -647,7 +680,7 @@ Create `lib/chat_screen.dart`:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 import 'gemma_service.dart';
 
@@ -859,7 +892,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'gemma_service.dart';
@@ -1106,11 +1139,11 @@ Run the app again, open **Chat & vision**, attach a photo and ask *"What do you 
 ## Show the model's reasoning
 Duration: 0:06:00
 
-Gemma 4 can think before it answers. With `isThinking: true`, the stream also emits `ThinkingResponse` events that carry the reasoning, followed by the normal `TextResponse` answer.
+Gemma 4 can think before it answers. With `enableThinking: true`, the stream also emits `ThinkingResponse` events that carry the reasoning, followed by the normal `TextResponse` answer.
 
 Replace `lib/chat_screen.dart` again. What changed:
 
-* `ChatScreen` takes a `thinking` flag and passes it to `createChat` as `isThinking`.
+* `ChatScreen` takes a `thinking` flag and passes it to `createChat` as `enableThinking`.
 * The `if` on `TextResponse` becomes an exhaustive `switch` over the sealed `ModelResponse`. Reasoning goes into `ChatMessage.thinking`, and the answer into `text`.
 * The bubble shows reasoning in an expandable **Reasoning** section. It starts open while the model is still thinking.
 
@@ -1119,7 +1152,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'gemma_service.dart';
@@ -1162,7 +1195,7 @@ class _ChatScreenState extends State<ChatScreen> {
         topK: 40,
         topP: 0.9,
         systemInstruction: GemmaService.chatInstruction,
-        isThinking: widget.thinking,
+        enableThinking: widget.thinking,
       );
       if (mounted) setState(() => _chat = chat);
     } catch (e) {
@@ -1399,12 +1432,12 @@ Open **Thinking** and try a question that punishes a quick answer:
 The reasoning streams first. Then the answer (0.05) appears below it.
 
 > aside positive
-> Thinking is set per chat, not per model. The Chat and Thinking screens share the same loaded weights, and only the conversation differs.
+> Thinking is set per chat, not per model. The Chat and Thinking screens share one loaded model, and only the conversation differs.
 
 ## Let the model call your code
 Duration: 0:12:00
 
-Function calling lets the model trigger actions in your app. You describe each tool with a name, a description and a JSON Schema for its arguments. When the model decides to use one, flutter_gemma parses the call, you run it, and the result goes back to the model so it can continue.
+Function calling lets the model trigger actions in your app. You describe each tool with a name, a description and a JSON Schema for its arguments. When the model decides to use one, flutter_edge_ai parses the call, you run it, and the result goes back to the model so it can continue.
 
 `generateChatResponseWithTools` runs that loop for you. You supply one callback, `onToolCall`.
 
@@ -1412,7 +1445,7 @@ Create `lib/tools_screen.dart`:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 import 'gemma_service.dart';
 
@@ -1648,13 +1681,13 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
 Things to notice:
 
-* **`tools` + `supportsFunctionCalls: true`** on `createChat` declare the tools. With `ModelType.gemma4`, flutter_gemma passes them to the model's native chat template instead of pasting them into the prompt text.
-* **`onToolCall`** gets a `FunctionCallResponse` with `name` and `args`, and returns a `Map`. flutter_gemma sends that map back to the model and asks it to continue, until the model replies without calling a tool.
-* **`_runTool` never throws.** If `onToolCall` throws, flutter_gemma records the error in the conversation and then rethrows it, which ends the stream. Returning `{'error': ...}` instead lets the model read what went wrong and respond to it.
+* **`tools` + `supportsFunctionCalls: true`** on `createChat` declare the tools. With `ModelType.gemma4`, flutter_edge_ai passes them to the model's native chat template instead of pasting them into the prompt text.
+* **`onToolCall`** gets a `FunctionCallResponse` with `name` and `args`, and returns a `Map`. flutter_edge_ai sends that map back to the model and asks it to continue, until the model replies without calling a tool.
+* **`_runTool` never throws.** If `onToolCall` throws, flutter_edge_ai records the error in the conversation and then rethrows it, which ends the stream. Returning `{'error': ...}` instead lets the model read what went wrong and respond to it.
 * **`maxToolTurns: 5`** stops a model that keeps calling tools without ever answering.
 
 > aside negative
-> **Give every tool a `parameters` schema, even with no arguments.** `list_tasks` takes no arguments but still declares `{'type': 'object', 'properties': {}}`. With flutter_gemma 1.8.1, a tool that leaves `parameters` out makes generation fail with `Failed to start streaming (code: 13)`.
+> **Give every tool a `parameters` schema, even with no arguments.** `list_tasks` takes no arguments but still declares `{'type': 'object', 'properties': {}}`. With flutter_edge_ai 1.8.1, a tool that leaves `parameters` out makes generation fail with `Failed to start streaming (code: 13)`.
 
 Finally, add the third tile. Replace `lib/home_screen.dart`:
 
@@ -1759,7 +1792,7 @@ Problems you're likely to hit, and what fixes them.
 ### The model downloads but won't load
 
 * Check `fileType: ModelFileType.litertlm` on `installModel`. The extension isn't inferred.
-* Check that `FlutterGemma.initialize` registers `LiteRtLmEngine()`.
+* Check that `FlutterEdgeAi.initialize` registers `LiteRtLmEngine()`.
 * If you first installed with the wrong `fileType`, the app still treats the model as installed and skips the download screen. Uninstall the app, or clear its data, and install again.
 
 ### Tool calls show up as raw text
@@ -1792,7 +1825,7 @@ Check that you're on an arm64 device, not an x86_64 emulator, and that `abiFilte
 
 ### macOS: the engine fails to load
 
-Open the built app's `Contents/Frameworks` folder. If `GemmaModelConstraintProvider.framework` is missing, the Run Script phase didn't run. Check that it's the last build phase and that its input file is set.
+Open the built app's `Contents/Frameworks` folder. If `GemmaModelConstraintProvider.framework` is missing, the staging phase never ran: check that the `post_install` block is in `macos/Podfile` and run `flutter clean && flutter pub get` before building again.
 
 ### The app is killed while loading the model
 
@@ -1805,14 +1838,15 @@ You built a Flutter app that runs Gemma 4 on the device, with streaming chat, im
 
 ### Where to go next
 
-* **Add voice.** [flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech) adds on-device speech-to-text (for example Whisper) and text-to-speech (for example Matcha), so the whole speech-to-speech loop can run without a network.
-* **Answer questions about your own documents.** `flutter_gemma_rag_sqlite` and `flutter_gemma_rag_qdrant` add on-device vector search for retrieval-augmented generation.
-* **Give the model skills.** `flutter_gemma_agent` builds on function calling with reusable skills.
-* **Explore the demo app.** [flutter-gemma-demo](https://github.com/jakansha2001/flutter-gemma-demo) is a more complete version of this app, with a hands-free voice loop, a larger set of tools and Markdown/LaTeX rendering.
+* **Add voice.** [flutter_edge_ai_speech](https://pub.dev/packages/flutter_edge_ai_speech) adds on-device speech-to-text (Whisper Tiny listens for 30 seconds at a time) and text-to-speech (Inflect-Nano is English-only and the fastest of the three), so a whole speech-to-speech loop runs without a network.
+* **Answer questions about your own documents.** `flutter_edge_ai_sqlite` and `flutter_edge_ai_qdrant` add on-device vector search for retrieval-augmented generation.
+* **Give the model skills.** `flutter_edge_ai_agent` builds on function calling with reusable skills.
+* **Explore the demo app.** [gemma-on-device-demo](https://github.com/jakansha2001/gemma-on-device-demo) is a more complete version of this app, with a hands-free voice loop, a larger set of tools and Markdown/LaTeX rendering.
 
 ### Resources
 
-* [flutter_gemma on pub.dev](https://pub.dev/packages/flutter_gemma)
+* [flutter_edge_ai documentation](https://flutteredge.ai)
+* [flutter_edge_ai on pub.dev](https://pub.dev/packages/flutter_edge_ai)
 * [Gemma 4 E2B LiteRT-LM model card](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm)
 * [Gemma documentation](https://ai.google.dev/gemma)
 * [LiteRT-LM on GitHub](https://github.com/google-ai-edge/LiteRT-LM)

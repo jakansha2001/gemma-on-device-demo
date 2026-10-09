@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:gemma_vision_demo/gemma/gemma_failure.dart';
 import 'package:gemma_vision_demo/gemma/gemma_service.dart';
 import 'package:gemma_vision_demo/gemma/model_catalog.dart';
@@ -16,7 +16,7 @@ import 'package:image_picker/image_picker.dart';
 
 /// Streaming chat with an optional image attachment.
 ///
-/// With [thinking] on, the same weights run with `isThinking: true` and the
+/// With [thinking] on, the same weights run with `enableThinking: true` and the
 /// stream starts emitting [ThinkingResponse] alongside [TextResponse] — the
 /// model's scratchpad, rendered in its own collapsible block.
 class ChatScreen extends StatefulWidget {
@@ -64,7 +64,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // only opens a fresh conversation on top of them.
       final chat = await GemmaService.instance.openChat(
         supportImage: true,
-        isThinking: widget.thinking,
+        enableThinking: widget.thinking,
         systemInstruction: widget.thinking
             // Do not tell a thinking model to be brief — that fights the
             // reasoning we are trying to show off. But DO pin the language:
@@ -302,6 +302,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final streaming = _liveText.isNotEmpty || _liveThinking.isNotEmpty;
+    // Padding, not a constrained box: a list inside a narrow box puts its
+    // scrollbar in the middle of a wide window.
+    final inset = pageInset(MediaQuery.sizeOf(context).width);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -325,8 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ? LoadingView(
                 title: 'Loading Gemma 4 onto the GPU',
                 accent: _accent,
-                subtitle:
-                    'The weights load once and are shared by every screen.',
+                subtitle: 'The model loads once and every screen shares it.',
               )
             : _failure != null
             ? ErrorView(failure: _failure!, onRetry: _init)
@@ -371,9 +373,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: SelectionArea(
                                   child: ListView.builder(
                                     controller: _scroll,
-                                    padding: const EdgeInsets.all(16),
+                                    padding: EdgeInsets.fromLTRB(
+                                      inset,
+                                      16,
+                                      inset,
+                                      16,
+                                    ),
                                     itemCount:
-                                        _messages.length + (_generating ? 1 : 0),
+                                        _messages.length +
+                                        (_generating ? 1 : 0),
                                     itemBuilder: (_, i) => i < _messages.length
                                         ? ChatBubble(entry: _messages[i])
                                         : ChatBubble(
@@ -391,8 +399,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               JumpToLatestButton(
                                 visible: !_autoScroll.isPinned,
                                 color: _accent,
-                                onPressed: () =>
-                                    setState(_autoScroll.resume),
+                                onPressed: () => setState(_autoScroll.resume),
                               ),
                             ],
                           ),
@@ -409,6 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onClearImage: () => setState(() => _pendingImage = null),
                     onSend: _send,
                     onStop: _stop,
+                    inset: inset,
                   ),
                 ],
               ),

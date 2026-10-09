@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:gemma_vision_demo/theme.dart';
 
 /// Keeps a transcript pinned to the bottom while tokens stream in — but stops
 /// the moment the reader scrolls up, and resumes when they come back down.
@@ -133,14 +134,18 @@ class JumpToLatestButton extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.arrow_downward, size: 14, color: Colors.white),
+                      Icon(
+                        Icons.arrow_downward,
+                        size: 14,
+                        color: AppColors.onAccent,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Jump to latest',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
+                          color: AppColors.onAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

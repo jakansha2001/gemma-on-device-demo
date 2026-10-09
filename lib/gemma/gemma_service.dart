@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:gemma_vision_demo/gemma/model_catalog.dart';
 
 /// Owns the one loaded copy of Gemma 4 for the whole app.
@@ -22,21 +22,22 @@ class GemmaService {
 
   /// True once the file is on disk. Cheap — no weights are read.
   Future<bool> isInstalled() =>
-      FlutterGemma.isModelInstalled(Models.llmFilename);
+      FlutterEdgeAi.isModelInstalled(Models.llmFilename);
 
   /// Download + register the model. Idempotent: if the file is already on
-  /// disk, flutter_gemma detects it and skips straight to marking it active.
+  /// disk, flutter_edge_ai detects it and skips straight to marking it active.
   Future<void> install({void Function(int percent)? onProgress}) async {
-    var builder = FlutterGemma.installModel(
-      modelType: Models.llmModelType,
-      fileType: Models.llmFileType,
-    ).fromNetwork(
-      Models.llmUrl,
-      // Android only: run the download as a foreground service with a
-      // progress notification, so Android is less likely to pause a 2.6 GB
-      // download when the app goes to the background.
-      foreground: true,
-    );
+    var builder =
+        FlutterEdgeAi.installModel(
+          modelType: Models.llmModelType,
+          fileType: Models.llmFileType,
+        ).fromNetwork(
+          Models.llmUrl,
+          // Android only: run the download as a foreground service with a
+          // progress notification, so Android is less likely to pause a 2.6 GB
+          // download when the app goes to the background.
+          foreground: true,
+        );
     if (onProgress != null) builder = builder.withProgress(onProgress);
     await builder.install();
   }
@@ -44,7 +45,7 @@ class GemmaService {
   /// Load the weights (or return the already-loaded model).
   Future<InferenceModel> loadModel() async {
     if (_model != null) return _model!;
-    _model = await FlutterGemma.getActiveModel(
+    _model = await FlutterEdgeAi.getActiveModel(
       maxTokens: Models.llmMaxTokens,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,
@@ -55,7 +56,7 @@ class GemmaService {
 
   /// A conversation on the shared model.
   ///
-  /// [tools] and [isThinking] are per-chat, so the vision screen, the
+  /// [tools] and [enableThinking] are per-chat, so the vision screen, the
   /// function-calling screen and the voice loop can each configure the same
   /// weights differently.
   ///
@@ -75,7 +76,7 @@ class GemmaService {
     double? temperature,
     int? topK,
     double? topP,
-    bool isThinking = false,
+    bool enableThinking = false,
     List<Tool> tools = const [],
     String? systemInstruction,
     int? maxOutputTokens,
@@ -91,7 +92,7 @@ class GemmaService {
       supportImage: supportImage,
       tools: tools,
       supportsFunctionCalls: tools.isNotEmpty,
-      isThinking: isThinking,
+      enableThinking: enableThinking,
       // Without this the chat defaults to ModelType.gemmaIt and Gemma 4's
       // native tool-call tokens are never routed correctly.
       modelType: Models.llmModelType,
