@@ -1,19 +1,16 @@
 # Gemma On-Device Demo
 
-A Flutter app that runs Google's Gemma 4 E2B model directly on your phone or Mac. It can look at a photo, show its reasoning, use functions in the app, and hold a spoken conversation. The internet is only used once, to download the model. After that you can switch on airplane mode and everything still works.
+A Flutter app that runs Gemma 4 E2B on a phone or a Mac. It looks at photos, shows its reasoning, calls Dart functions in the app, and holds a conversation out loud. It uses the network once, to download the model. After that you can switch on airplane mode and nothing changes.
 
-I built it for my talk, **Building On-Device AI Apps with Flutter and Gemma**, using [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
+I built it for my talk, **Building On-Device AI Apps with Flutter and Gemma**, on top of [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 
-Moving an older app forward, or wondering where `flutter_gemma` went? [WHATS_NEW.md](WHATS_NEW.md) has the upgrade story.
+Moving an older app across, or wondering where `flutter_gemma` went? That story is in [WHATS_NEW.md](WHATS_NEW.md).
 
-## What it does
+## What's in it
 
-- **Vision chat**: attach a photo and ask about it. The answer appears as it's written.
-- **Thinking mode**: the model works through the problem first. Its reasoning shows in a separate section, above the answer.
-- **Function calling**: the model can use six tools that change what's on screen, like adding a task to a to-do list or changing the app's accent colour. Ask it to add a task and then read your list back, and it uses two tools in a row.
-- **Voice loop**: ask a question out loud and hear the answer. Three models run on the device: one turns your speech into text, Gemma writes the reply, and one reads it aloud. It works with push-to-talk or hands-free.
+Four screens, one model.
 
-## Screenshots
+**Vision chat** takes a photo and answers questions about it, streaming as it writes. **Thinking mode** puts the model's reasoning in its own section above the answer, so you can watch it work through a problem before it commits. **Function calling** gives it six tools that change what's on screen — ask it to add a task and then read your list back, and it calls two in a row. **Voice loop** is the one people remember: you speak, it answers out loud, with three models running on the device and no network at any point.
 
 <table>
   <tr>
@@ -31,12 +28,12 @@ Moving an older app forward, or wondering where `flutter_gemma` went? [WHATS_NEW
 ## From the talk
 
 - **Slides:** [akanshajain.dev/talks/on-device-ai](https://akanshajain.dev/talks/on-device-ai/)
-- **Codelab:** [akanshajain.dev/codelabs/on-device-ai](https://akanshajain.dev/codelabs/on-device-ai/), a step-by-step guide to building a smaller version of this app
+- **Codelab:** [akanshajain.dev/codelabs/on-device-ai](https://akanshajain.dev/codelabs/on-device-ai/) — builds a smaller version of this app from an empty project
 - **Article:** [Why I think on-device AI changes mobile architecture](https://medium.com/flutter-community/why-i-think-on-device-ai-changes-mobile-architecture-3cc6b09afd83)
 
-## Run it
+## Running it
 
-This project uses [FVM](https://fvm.app) to pin Flutter 3.47.3, so it won't affect your other Flutter projects. flutter_edge_ai needs Flutter 3.44 or newer and Dart 3.12 or newer.
+The project pins Flutter 3.47.3 with [FVM](https://fvm.app) so it can't disturb your other projects. flutter_edge_ai needs Flutter 3.44+ and Dart 3.12+.
 
 ```bash
 dart pub global activate fvm   # if you don't have FVM yet
@@ -45,35 +42,35 @@ fvm flutter pub get
 fvm flutter run -d macos       # or pick a connected phone
 ```
 
-Use `fvm flutter`, not plain `flutter`. An older Flutter on your machine will refuse to install the dependencies.
+Use `fvm flutter` rather than plain `flutter` — an older SDK will refuse to resolve the dependencies. There's no Hugging Face token to set up; every model here is public.
 
-You don't need a Hugging Face account or token. Every model this app uses is public.
+## The models
 
-## Models
-
-| What it does | Model | Download |
+| | Model | Download |
 | --- | --- | --- |
-| Understands text and images, writes replies | Gemma 4 E2B (`.litertlm`) | 2.6 GB |
-| Turns speech into text | Whisper Tiny | 151 MB |
-| Turns text into speech | Inflect-Nano-v2 | about 36 MB |
+| Text and images in, answer out | Gemma 4 E2B (`.litertlm`) | 2.6 GB |
+| Speech to text | Whisper Tiny | 151 MB |
+| Text to speech | Inflect-Nano-v2 | about 36 MB |
 
-Gemma downloads the first time you open any demo, and all four demos share it. The two speech models only download when you open the voice loop.
+Gemma downloads the first time you open any screen and all four share it. The speech models wait until you open the voice loop.
 
-Why these particular models:
+The `.litertlm` format matters more than it sounds: one file covers Android, iOS and macOS, while the older `.task` format is MediaPipe-only and won't load on desktop at all.
 
-- **The `.litertlm` format**, because one file works on Android, iOS and macOS. The older `.task` format only runs through MediaPipe and doesn't work on desktop.
-- **Whisper Tiny instead of Moonshine Tiny.** Speech-to-text models are exported with a fixed window: Moonshine Tiny's is five seconds, and anything past it is dropped without an error. Whisper Tiny's is thirty seconds, which is what makes a conversational turn possible. The app caps recording at 25 seconds to stay inside it.
-- **Inflect-Nano-v2 for speech**, because it's fast enough to keep a conversation moving. Synthesizing one 4.8-second sentence took 0.6 s with Inflect and 15.8 s with Matcha on my M1 Mac, and Whisper transcribed both samples back word-perfect. Inflect is English-only, which is what the voice loop asks for anyway.
+Whisper is there because of something I didn't expect. Speech-to-text models are exported with a fixed listening window, and Moonshine Tiny's is five seconds — it's in the filename, `moonshine_tiny_5s_f32.tflite`. Anything past five seconds is thrown away with no error, which looks exactly like a broken app. Whisper gives you thirty, so the recorder caps at 25 and shows a countdown.
 
-## Requirements
+Inflect replaced Matcha for speed. On my M1, one 4.8-second sentence took 0.6 s to synthesize with Inflect and 15.8 s with Matcha, and Whisper transcribed both back word-perfect. Inflect is English-only, which the voice loop pins anyway.
 
-- **Android:** an arm64 phone on Android 11 (API 30) or newer, with plenty of free memory. API 30 is the floor for `.litertlm` inference and speech. The build is limited to arm64, because the engine only ships arm64 code, so you find out at build time rather than when the model starts.
-- **iOS:** iOS 15.0 or newer, on a real iPhone. The Simulator can only use the CPU, because it can't give the GPU a single block of memory larger than 256 MB, and the model needs more.
-- **macOS:** an Apple Silicon Mac. Intel Macs are not supported by the engine. This is the easiest target while developing.
+## What you need
 
-Web isn't supported here. The web build of Gemma 4 E2B is text-only, so the vision demo wouldn't work.
+**Android 11 (API 30) or newer**, arm64, with memory to spare. API 30 is the floor for `.litertlm` inference and speech, and the build is restricted to arm64 so you find out at build time instead of when the engine starts.
 
-## How the code is organised
+**iOS 16 or newer, on a real iPhone.** That's what this project's Podfile declares; flutter_edge_ai itself asks for 15 or newer. The Simulator is CPU-only, so the GPU path you actually want isn't available there.
+
+**macOS on Apple Silicon.** Intel isn't supported by the engine. This is the easiest target to develop against.
+
+Web is out, because the web build of Gemma 4 E2B is text-only and the vision screen would have nothing to do.
+
+## How the code is laid out
 
 ```text
 lib/
@@ -93,23 +90,21 @@ lib/
 └── utils/audio_converter.dart  converts between WAV files and raw audio
 ```
 
-## Things that tripped me up
+## What caught me out
 
-**Two settings you have to set yourself.** `installModel` defaults `fileType` to `.task`, so a `.litertlm` file goes to an engine that can't read it unless you pass `ModelFileType.litertlm`. And `createChat` falls back to `ModelType.gemmaIt` when `modelType` is left out, which sends tools to the model as prompt text instead of Gemma 4's own tool-call format. Both compile fine.
+Two settings have defaults that are wrong for this app, and neither one is a compile error. `installModel` defaults `fileType` to `.task`, so a `.litertlm` file gets handed to an engine that can't read it — you download 2.6 GB and then watch it fail to load. And `createChat` falls back to `ModelType.gemmaIt` if you leave `modelType` out, which quietly turns Gemma 4's native tool calls into text pasted in the prompt. Function calling then looks broken for no visible reason.
 
-**Load the model once.** Loading the model is the slow, memory-heavy part. `GemmaService` loads it a single time, and each screen opens its own conversation on top of it. Leaving a screen closes that conversation, never the model.
+Images only work in the main conversation. `createChat()` uses the model's single primary session; `openChat()` gives you extra ones on the same loaded weights, which is what you want when every screen needs its own chat. On the `.litertlm` engine those extra sessions get rebuilt from their history as *text* whenever the engine switches between them, and a photo can't be replayed as text, so they refuse it outright: *"Image/audio input is not supported on concurrent (openSession) `.litertlm` sessions."* Text worked everywhere and the first image failed. The vision screen uses `createChat()`, which is fine here because only one screen is ever open.
 
-**Photos only work in the main conversation.** `createChat()` uses the model's main session. `openChat()` opens extra sessions that share the same loaded model, and on the `.litertlm` engine those replay their history as text when the engine switches between them. A photo can't be replayed as text, so they reject images outright: *"Image/audio input is not supported on concurrent (openSession) `.litertlm` sessions."* The vision demo uses `createChat()`, which is safe here because only one screen is open at a time.
+A tool that takes no arguments still needs a schema. `Tool.parameters` defaults to an empty map and generation dies with `Failed to start streaming (code: 13)`, which tells you nothing. `get_current_time` carries `{'type': 'object', 'properties': <String, dynamic>{}}` for that reason alone.
 
-**A tool with no arguments still needs a schema.** `Tool.parameters` defaults to an empty map, and generation then fails with `Failed to start streaming (code: 13)`. A tool like `get_current_time` needs `{'type': 'object', 'properties': <String, dynamic>{}}` written out.
+The model also leaks its own plumbing occasionally. Tool calls and reasoning come down the same stream as the answer, and although the package separates them, I still saw raw markers reach the screen. `ModelText.sanitize` runs over the whole reply so far rather than each new chunk, because a marker can be split across two of them.
 
-**Clean up the text before showing it.** Gemma 4 sends tool calls and reasoning through the same stream as the answer. The package usually separates them, but I still saw raw tool-call data and reasoning markers reach the visible reply. `ModelText.sanitize` cleans the whole reply received so far rather than each new piece, because a marker can be split across two pieces.
+Tools return an `{'error': ...}` map instead of throwing. A thrown exception ends the model's turn; an error map gets read, and the model usually explains itself or tries something else.
 
-**Tools return errors instead of throwing.** If a tool throws an exception, it ends the model's reply. `DemoTools.execute` returns an `{'error': ...}` map instead. The model reads it and can correct itself or explain what went wrong.
+Hands-free listening is mine, not the package's — `VoiceActivityDetector` watches the microphone level, starts at −40 dB and stops after about 2.6 seconds of quiet. Air conditioning will set it off, so there's a sensitivity control on the voice screen.
 
-**Hands-free listening uses a volume threshold.** The package doesn't detect when you start or stop talking, so `VoiceActivityDetector` does it. Speech starts when the microphone level goes above a threshold, which is −40 dB by default, and ends after about 2.6 seconds of quiet. If a fan or air conditioner keeps setting it off, you can adjust the sensitivity on the voice screen.
-
-**Less randomness than Google's defaults.** Google's model card recommends temperature 1.0, topP 0.95 and topK 64 for Gemma 4. These settings control how adventurous the model is when picking each next word. With them, this small model sometimes switched language mid-sentence, like dropping in the Japanese word for "source". Chat uses 0.7, 0.9 and 40, voice uses a temperature of 0.3, and the system instruction names the language. That makes it rare, at the cost of slightly less varied wording.
+Last one: Google's model card suggests temperature 1.0, topP 0.95, topK 64. At those settings this small model occasionally switched language mid-sentence — an English answer with the Japanese word for "source" dropped into it. Chat runs at 0.7 / 0.9 / 40, voice at 0.3, and the system instruction names the language. It still happens, just rarely.
 
 ## Tests
 
@@ -117,28 +112,19 @@ lib/
 fvm flutter test
 ```
 
-There are 116 tests. They focus on the parts where a bug is easy to miss until it matters:
+116 of them, aimed at the places where a bug hides until it matters: the tools never throw whatever the model sends, WAV and raw audio survive a round trip including malformed input, the sentence splitter doesn't trip on "3.14" or "Dr. Bhatt", the text cleanup runs against real output that leaked, voice detection is checked in quiet and noisy conditions, and the voice loop is driven end to end with fake models to prove every turn finishes instead of hanging.
 
-- **Tools:** the tool code never throws, whatever the model sends.
-- **Audio:** WAV and raw audio convert correctly, including broken input.
-- **Sentences:** the sentence splitter doesn't break on things like "3.14" or "Dr. Bhatt".
-- **Text cleanup:** it's tested against real output that leaked.
-- **Voice detection:** it's tested in quiet and noisy conditions.
-- **Voice loop:** it's tested end to end with fake models, checking that every turn finishes instead of hanging.
+## Platform setup worth knowing about
 
-## Platform setup that isn't obvious
+On Android 14 and newer, a large foreground download crashes unless the app declares `FOREGROUND_SERVICE_DATA_SYNC` and marks WorkManager's `SystemForegroundService` as a data sync service. Both are in the manifest. The OpenCL entries the GPU needs come from the package's own manifest, so there's nothing to add for those.
 
-**Android 14 and newer** crash on large downloads that run in the foreground unless the app declares the `FOREGROUND_SERVICE_DATA_SYNC` permission and marks WorkManager's `SystemForegroundService` as a data sync service. Both are in the manifest. The OpenCL entries the GPU backend needs are merged in from the package's own manifest.
+macOS needs the `post_install` block in `macos/Podfile`. Two GPU companion libraries can't be bundled automatically, and that block adds the build phase that stages them into the app. Skip it and the build still succeeds — it's the first model load that fails, with `Library not loaded: @rpath/libGemmaModelConstraintProvider.dylib`. The entitlements there also cover loading those libraries, the network, file picking and the microphone.
 
-**macOS** has a `post_install` step in `macos/Podfile`. Two of the GPU companion libraries can't be bundled automatically, so this step adds a build phase that stages them into the app. Without it the build succeeds and the first model load fails with `Library not loaded: @rpath/libGemmaModelConstraintProvider.dylib`. The app's entitlements also allow loading those libraries, network access, opening files you choose, and using the microphone.
-
-The iPhone-only memory entitlements are left out of the macOS build on purpose. They do nothing on a Mac, and including them makes Xcode ask for a development signing certificate.
+The iPhone memory entitlements are deliberately absent from the macOS build. They do nothing on a Mac and they make Xcode demand a signing certificate.
 
 ## Credits
 
-- [flutter_edge_ai](https://github.com/DenisovAV/flutter_edge_ai) by Sasha Denisov — [docs](https://flutteredge.ai)
-- [Gemma](https://ai.google.dev/gemma) by Google DeepMind
-- Model builds from [litert-community](https://huggingface.co/litert-community) on Hugging Face
+[flutter_edge_ai](https://github.com/DenisovAV/flutter_edge_ai) by Sasha Denisov ([docs](https://flutteredge.ai)), [Gemma](https://ai.google.dev/gemma) by Google DeepMind, and the model builds from [litert-community](https://huggingface.co/litert-community) on Hugging Face.
 
 ## Author
 
