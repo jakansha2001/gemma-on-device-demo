@@ -135,12 +135,12 @@ abstract final class Models {
   // real-time) and Inflect 0.6 s (7.2x real-time), with both samples
   // transcribed back word-perfect by Whisper.
   //
-  // Inflect is English-only, which is what the voice loop pins anyway, and it
-  // reuses Matcha's four G2P (pronunciation) files — the installer fetches
-  // those from the Matcha repo, so only the two Inflect graphs are new.
+  // Inflect is English-only, which is what the voice loop pins anyway. Its own
+  // two graphs are 8 MB; the rest of the ~36 MB is the shared G2P
+  // (pronunciation) set the installer fetches alongside them.
   static const ttsBaseUrl =
       'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
   static const ttsModelType = TtsModelType.inflect;
   static const ttsDisplayName = 'Inflect-Nano';
-  static const ttsSize = '35 MB';
+  static const ttsSize = '36 MB';
 }
