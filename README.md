@@ -18,12 +18,12 @@ Moving an older app forward, or wondering where `flutter_gemma` went? [WHATS_NEW
 <table>
   <tr>
     <td><img src="docs/screenshots/home.jpg" width="280" alt="Home screen listing the four demos"/></td>
-    <td><img src="docs/screenshots/vision.jpg" width="280" alt="Vision chat describing a photo of red roses"/></td>
+    <td><img src="docs/screenshots/vision.jpg" width="280" alt="Vision chat describing a photo of a bicycle against a graffiti wall"/></td>
     <td><img src="docs/screenshots/thinking.jpg" width="280" alt="Thinking mode solving the bat-and-ball question"/></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/function-calling.jpg" width="280" alt="Function calling marking a task as done"/></td>
-    <td><img src="docs/screenshots/voice.jpg" width="280" alt="Voice loop speaking a reply"/></td>
+    <td><img src="docs/screenshots/voice.jpg" width="280" alt="Voice loop speaking a reply, with the transcript and the reply on screen"/></td>
     <td></td>
   </tr>
 </table>
