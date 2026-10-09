@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'gemma_service.dart';
@@ -45,7 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
         topK: 40,
         topP: 0.9,
         systemInstruction: GemmaService.chatInstruction,
-        isThinking: widget.thinking,
+        enableThinking: widget.thinking,
       );
       if (mounted) setState(() => _chat = chat);
     } catch (e) {

@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// One place for everything model-related, so screens don't repeat it.
 class GemmaService {
@@ -16,13 +16,13 @@ class GemmaService {
   static InferenceModel? _model;
 
   /// Whether the model file is already on this device.
-  static Future<bool> isInstalled() => FlutterGemma.isModelInstalled(modelFile);
+  static Future<bool> isInstalled() => FlutterEdgeAi.isModelInstalled(modelFile);
 
   /// Downloads the model once and marks it as the active model.
   static Future<void> install({
     required void Function(int percent) onProgress,
   }) {
-    return FlutterGemma.installModel(
+    return FlutterEdgeAi.installModel(
           modelType: ModelType.gemma4,
           fileType: ModelFileType.litertlm,
         )
@@ -35,7 +35,7 @@ class GemmaService {
 
   /// Loads the weights onto the GPU. This is slow, so it only happens once.
   static Future<InferenceModel> loadModel() async {
-    return _model ??= await FlutterGemma.getActiveModel(
+    return _model ??= await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,

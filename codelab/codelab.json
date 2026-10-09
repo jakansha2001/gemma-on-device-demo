@@ -3,13 +3,13 @@
   "format": "html",
   "prefix": "https://storage.googleapis.com",
   "mainga": "UA-49880327-14",
-  "updated": "2026-09-13T05:48:58+05:30",
+  "updated": "2026-10-09T06:00:35+05:30",
   "id": "flutter-gemma-on-device",
   "duration": 90,
   "title": "Building On-Device AI Apps with Flutter and Gemma",
   "authors": "Akansha Jain",
   "summary": "Build a Flutter app that runs Gemma 4 on the device: streaming chat, image understanding, visible reasoning and function calling, with no server and no API key.",
-  "source": "../codelab.md",
+  "source": "codelab.md",
   "theme": "",
   "status": [
     "published"
@@ -22,6 +22,6 @@
   "tags": [
     "web"
   ],
-  "feedback": "https://github.com/jakansha2001/flutter-gemma-demo/issues",
+  "feedback": "https://github.com/jakansha2001/gemma-on-device-demo/issues",
   "url": "flutter-gemma-on-device"
 }
