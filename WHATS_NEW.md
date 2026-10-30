@@ -1,15 +1,15 @@
 # What changed in the package since this demo was first built
 
 The first version of this app used **flutter_gemma 0.13.6**. It now uses
-**flutter_edge_ai 2.1.1**, with `flutter_edge_ai_litertlm` 1.10.1 and
-`flutter_edge_ai_speech` 0.5.4.
+**flutter_edge_ai 2.5.4**, with `flutter_edge_ai_litertlm` 1.19.0 and
+`flutter_edge_ai_speech` 0.5.12.
 
 This is the one place in the repo that tells the upgrade story. The talk, the
 slides and the codelab describe the package as it is today; if you're moving an
 older app forward, start here.
 
 Everything below comes from the packages' published changelogs and from the
-source of the versions this app depends on, checked on **9 October 2026**. The
+source of the versions this app depends on, checked on **30 October 2026**. The
 changelog doesn't give calendar dates, so versions are the only ordering here.
 
 ---
@@ -36,7 +36,8 @@ straight from an old version to 2.x means fixing every name by hand, because
 `dart fix` has nothing left to map.
 
 One thing the rename did **not** change: the native cache directory is still
-`~/Library/Caches/flutter_gemma/`, and the macOS build phase is still named
+`~/Library/Caches/flutter_gemma/`, and in a macOS project that still stages the
+GPU libraries through CocoaPods, the build phase is still named
 `[flutter_gemma] Setup LiteRT-LM macOS`. Leave both strings alone.
 
 ## 2. The core ships no engine
@@ -61,6 +62,13 @@ libraries for the engines you actually registered.
 
 | Version | Change |
 | --- | --- |
+| 2.5.0 | The members deprecated for 2.5.0 are gone (MIGRATION.md lists them) |
+| 2.4.0 | Classes that `implements InferenceModel` add `createDecider` and two getters; `extends` is unaffected |
+| 2.3.0 | New embedding API (`embed`, `EmbeddingInput`) for EmbeddingGemma 2; over-long inputs throw instead of truncating |
+| 2.3.0 | Internals moved to `lib/src`; an engine package imports `package:flutter_edge_ai/engine.dart` |
+| 2.3.0 | The members deprecated in 1.x and 2.0 are gone |
+| 2.2.1 | **For `implements InferenceModel`:** add `isClosed`; `extends` inherits the default |
+| 2.2.0 | Sampling values you leave unset now come from the model file, then its family — not greedy `topK: 1` |
 | 2.1.0 | `isThinking:` → **`enableThinking:`**, and `ModelRuntimeDefaults.isThinking` → `thinkingDeclared` |
 | 2.0.0 | `ModelFileManager.setActiveModel` removed — use **`ensureModelReadyFromSpec`** |
 | 2.0.0 | RAG APIs and the storage contracts moved to **`flutter_edge_ai_rag`**, with `_sqlite` or `_qdrant` as the store |
@@ -76,9 +84,12 @@ libraries for the engines you actually registered.
   Gemma 4's own tool-call tokens. `ModelType.qwen35` was added in 2.1.0.
 * **`activationDataType`** on `getActiveModel` (1.10.0): passing `float32`
   fixes wrong digits in arithmetic on some GPUs.
+* **`FlutterEdgeAi.openModel`** (2.5.0) opens several caller-owned models at
+  once, each closed by whoever opened it. `FlutterEdgeAiPlugin.createModel` is
+  deprecated in its favour.
 * Two defaults that have not changed, and still catch people out:
   `installModel` defaults `fileType` to `.task`, and `createChat` falls back to
-  `ModelType.gemmaIt` when `modelType` is omitted.
+  `ModelType.gemmaIt` when `modelType` is omitted. Both are still true in 2.5.4.
 
 ## 5. Function calling got a real loop
 
@@ -110,6 +121,8 @@ libraries for the engines you actually registered.
 | 0.4.3 | `VoiceSession(streamAudio: true)`: clause-by-clause synthesis overlapped with the LLM stream |
 | 0.5.0 | Whisper's output language became a parameter instead of hardcoded English |
 | 0.5.2 | Fixed Inflect's garbled speech — the encoder now gets the blank tokens it was trained with |
+| 0.5.7 | `VoiceSession.runAudioTurn`: the model hears the recording, with no speech-to-text in the way |
+| 0.5.11 | A closed recognizer or synthesizer fails through the Future it returned, instead of hanging |
 
 Two things to take from that list. **`streamAudio: true` removes the need to
 split a reply into sentences yourself**, which is what this app used to do.
@@ -120,7 +133,27 @@ against Matcha's 15.8 s, and Whisper transcribes both back word-perfect.
 Speech-to-text models still have a fixed window — Moonshine Tiny five seconds,
 Whisper Tiny thirty — and anything longer is truncated without an error.
 
-## 7. New packages worth a look
+## 7. Gemma 4 can just listen
+
+Gemma 4 takes audio as an input, so the whole speech-to-text step is optional.
+Open the chat with `supportAudio: true` and send the recording itself:
+
+```dart
+await chat.addQueryChunk(Message.audioOnly(audioBytes: wavBytes, isUser: true));
+```
+
+Two models become one, and nothing is lost to a wrong transcript.
+`VoiceSession.runAudioTurn` (speech 0.5.7) is the same thing inside the
+ready-made loop.
+
+Two details that cost time if you don't know them. `getActiveModel` has to be
+told `supportAudio: true` as well — the chat flag alone isn't enough. And
+litertlm 1.14.0 changed the order of a mixed message so that Gemma 4 gets its
+audio *after* the text, because the package measured that it answers more
+spoken turns that way; `getActiveModel(multimodalOrder:)` overrides it. A
+message that is only audio sidesteps the question.
+
+## 8. New packages worth a look
 
 * **`flutter_edge_ai_builtin_ai`** uses the model built into the OS or browser:
   Gemini Nano on Android, Apple Foundation Models on iOS and macOS 26+,
@@ -131,20 +164,23 @@ Whisper Tiny thirty — and anything longer is truncated without an error.
 * **Agent skills for the package itself** (1.8.2): `dart run skills@ get --all`
   teaches an AI assistant how the package works.
 
-## 8. Platform floors today
+## 9. Platform floors today
 
 * Flutter **3.44+**, Dart **3.12+** — the native libraries come through Dart
   build hooks (Native Assets).
 * **Android:** minSdk **30** for `.litertlm` inference, embeddings and speech;
   arm64 only. MediaPipe `.task` has no such floor.
 * **iOS:** 15.0, or 16.0 if you add `flutter_edge_ai_mediapipe`.
-* **macOS:** Apple Silicon only. Turn Swift Package Manager off for the app and
-  add the `post_install` block to `macos/Podfile`, or the build succeeds and
-  the first model load fails.
+* **macOS:** **14.0**, Apple Silicon only. With Swift Package Manager on — how
+  Flutter 3.47 behaves unless you turn it off — litertlm 1.19.0 ships the two GPU
+  companion libraries in its own Swift package and there is nothing to add. The
+  `post_install` block in `macos/Podfile` is for apps that have Swift Package
+  Manager off; without either, the build succeeds and the first model load
+  fails.
 * **Web:** `.litertlm` is an early preview — text and function calling, no
   vision or audio.
 
-## 9. What this demo changed because of all that
+## 10. What this demo changed because of all that
 
 * Renamed every import and `FlutterGemma` → `FlutterEdgeAi`.
 * `isThinking:` → `enableThinking:` on the vision and thinking screens.
@@ -153,3 +189,10 @@ Whisper Tiny thirty — and anything longer is truncated without an error.
 * The sentence-splitting voice loop in `lib/gemma/voice_turn.dart` is kept
   because it is the part of the demo that shows the pipeline on stage. If you
   are starting fresh, use `VoiceSession(streamAudio: true)` instead.
+* The voice screen got a switch for the audio route. Off, Whisper transcribes
+  and Gemma answers the text; on, Gemma answers the recording and Whisper sits
+  out. `VoiceTurn` takes an optional `respondToAudio` callback for that, and
+  the pipeline bar on screen strikes out the step that didn't run.
+* macOS moved onto Swift Package Manager: the `post_install` block and the
+  `[flutter_gemma] Setup LiteRT-LM macOS` build phase are both gone, and the
+  deployment target went from 12.0 to 14.0.

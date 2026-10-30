@@ -64,7 +64,7 @@
 <li>One of: <ul>
 <li>A physical <strong>Android</strong> phone with an arm64 CPU, running <strong>Android 11 (API 30) or newer</strong>. Recent, high-memory phones work best.</li>
 <li>A physical <strong>iPhone</strong> and a Mac with Xcode</li>
-<li>An <strong>Apple Silicon Mac</strong>, to run the app as a macOS desktop app</li>
+<li>An <strong>Apple Silicon Mac</strong> on <strong>macOS 14 or newer</strong>, to run the app as a macOS desktop app</li>
 </ul>
 </li>
 </ul>
@@ -103,7 +103,7 @@
 </aside>
 <h2 is-upgraded>Gemma 4 E2B, no token required</h2>
 <p>This codelab uses <a href="https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm" target="_blank">Gemma 4 E2B in LiteRT-LM format</a> from the <code>litert-community</code> organization on Hugging Face. The download is public, so there is <strong>no Hugging Face account, access request or token</strong> to manage. The &#34;E&#34; in E2B stands for <em>effective</em> parameters. Gemma 4 is released under the Apache 2.0 license.</p>
-<p>Gemma 4 E2B accepts text and images, can stream its reasoning, and supports function calling natively, and you use all of these below.</p>
+<p>Gemma 4 E2B accepts text, images and audio, can stream its reasoning, and supports function calling natively. You use all of those below except audio, which the last step points you at.</p>
 <h2 is-upgraded>One chat call covers everything</h2>
 <p>A single <code>InferenceChat</code> streams a sealed <code>ModelResponse</code> type: <code>TextResponse</code>, <code>ThinkingResponse</code>, <code>FunctionCallResponse</code> and <code>ParallelFunctionCallResponse</code>. Because the type is sealed, a Dart <code>switch</code> over it is checked for exhaustiveness at compile time.</p>
 
@@ -143,8 +143,8 @@ cd gemma_codelab
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flutter_edge_ai: ^2.1.1
-  flutter_edge_ai_litertlm: ^1.10.1
+  flutter_edge_ai: ^2.5.4
+  flutter_edge_ai_litertlm: ^1.19.0
   image_picker: ^1.2.3
 </code></pre>
 <table>
@@ -275,7 +275,7 @@ cd gemma_codelab
 
       </google-codelab-step>
     
-      <google-codelab-step label="Configure macOS" duration="6">
+      <google-codelab-step label="Configure macOS" duration="3">
         <p>Skip this step if you&#39;re not targeting macOS.</p>
 <h2 is-upgraded>Entitlements</h2>
 <p>macOS apps run in a sandbox. Add these keys to <strong>both </strong><code>macos/Runner/DebugProfile.entitlements</code> and <code>macos/Runner/Release.entitlements</code>, inside the <code>dict</code> element:</p>
@@ -300,70 +300,17 @@ cd gemma_codelab
 </td><td colspan="1" rowspan="1"><p>Lets <code>image_picker</code> open a photo you choose</p>
 </td></tr>
 </table>
-<h2 is-upgraded>Stage the GPU libraries into the app</h2>
-<p>On macOS, LiteRT-LM depends on two companion libraries (<code>libGemmaModelConstraintProvider.dylib</code> and <code>libLiteRtLmMetalAccelerator.dylib</code>) that the build hook can&#39;t bundle automatically. <code>flutter_edge_ai_litertlm</code> ships a script that copies them into your <code>.app</code> and fixes the engine&#39;s reference to them, and your build has to run it.</p>
-<aside class="warning"><p> Without this step the app still builds. It fails at the first model load, with <code>Library not loaded: @rpath/libGemmaModelConstraintProvider.dylib</code>. A successful build does not tell you this step worked.</p>
-</aside>
-<p>The script runs from an Xcode build phase, which CocoaPods adds for you. Turn off Swift Package Manager for the app so that <code>macos/Podfile</code> is generated. Add this to <code>pubspec.yaml</code>:</p>
-<pre><code language="language-yaml" class="language-yaml">flutter:
-  uses-material-design: true
-  config:
-    enable-swift-package-manager: false
+<h2 is-upgraded>Set the deployment target</h2>
+<p>On macOS, LiteRT-LM needs two companion libraries next to the engine: <code>GemmaModelConstraintProvider</code>, which the engine links, and <code>LiteRtLmMetalAccelerator</code>, which it loads at runtime for the GPU. Since flutter_edge_ai_litertlm 1.19.0 its own Swift package ships both, so with Swift Package Manager on — which is how Flutter 3.47 behaves unless you turn it off — there is nothing to wire up.</p>
+<p>The one thing you do have to change is the deployment target. Those libraries are built for <strong>macOS 14</strong>, and the package declares it, so Xcode refuses to build an app that targets anything lower. Open <code>macos/Runner.xcodeproj</code>, select the <strong>Runner</strong> target, and set <strong>Minimum Deployments</strong> to <strong>14.0</strong>. If your project still has a <code>macos/Podfile</code>, change its first line to match:</p>
+<pre><code language="language-ruby" class="language-ruby">platform :osx, &#39;14.0&#39;
 </code></pre>
-<p>Then regenerate the macOS project files:</p>
-<pre><code language="language-bash" class="language-bash">flutter pub get
-</code></pre>
-<p>Open <code>macos/Podfile</code> and replace its <code>post_install</code> block with this one:</p>
-<pre><code language="language-ruby" class="language-ruby">post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_macos_build_settings(target)
-  end
-
-  installer.aggregate_targets.each do |aggregate_target|
-    aggregate_target.user_targets.each do |user_target|
-      phase_name = &#39;[flutter_gemma] Setup LiteRT-LM macOS&#39;
-
-      # Only the app target has a Contents/Frameworks to patch. On any other
-      # target the phase creates an Xcode dependency cycle, so drop it there.
-      unless user_target.name == &#39;Runner&#39;
-        user_target.build_phases
-          .select { |p| p.respond_to?(:name) &amp;&amp; p.name == phase_name }
-          .each { |p| user_target.build_phases.delete(p) }
-        next
-      end
-
-      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
-      phase = existing || user_target.new_shell_script_build_phase(phase_name)
-      # Flutter re-copies the raw engine binary on every build. Declaring it as
-      # an input makes this phase run again afterwards, so the app never ships
-      # an unpatched engine.
-      phase.input_paths = [
-        &#39;$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm&#39;,
-      ]
-      phase.output_paths = [&#39;$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp&#39;]
-      phase.shell_script = &lt;&lt;~SHELL
-        set -e
-        STAGER=&#34;${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh&#34;
-        if [ ! -f &#34;${STAGER}&#34; ]; then
-          echo &#34;ERROR: ${STAGER} not found. Run: flutter clean &amp;&amp; flutter pub get&#34; &gt;&amp;2
-          exit 1
-        fi
-        sh &#34;${STAGER}&#34; &#34;${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks&#34;
-        mkdir -p &#34;$(dirname &#34;${SCRIPT_OUTPUT_FILE_0}&#34;)&#34;
-        touch &#34;${SCRIPT_OUTPUT_FILE_0}&#34;
-      SHELL
-    end
-  end
-end
-</code></pre>
-<aside class="special"><p> The cache folder really is called <code>flutter_gemma</code>: the package was renamed, and this path was not. The build hook writes the stager and the dylibs there, and the phase name matches what the tooling expects, so leave both strings exactly as they are.</p>
-</aside>
-<p>Build once and check that the staging worked:</p>
+<p>Build once and check that both companions came along:</p>
 <pre><code language="language-bash" class="language-bash">flutter build macos --debug
 ls build/macos/Build/Products/Debug/gemma_codelab.app/Contents/Frameworks
 </code></pre>
-<p>You should see <code>GemmaModelConstraintProvider.framework</code> and <code>LiteRtLmMetalAccelerator.framework</code> next to <code>LiteRtLm.framework</code>.</p>
-<aside class="special"><p><strong>Already have a </strong><strong><code>macos/Podfile</code></strong> for another plugin? Then leave Swift Package Manager on and just add the block above to the Podfile you have.</p>
+<p><code>GemmaModelConstraintProvider.framework</code> and <code>LiteRtLmMetalAccelerator.framework</code> should sit next to <code>LiteRtLm.framework</code>. If they don&#39;t, the first model load fails with <code>flutter_edge_ai_litertlm: LiteRT-LM did not load on macOS</code>.</p>
+<aside class="special"><p><strong>Swift Package Manager turned off?</strong> Then the companions come from a <code>post_install</code> block in <code>macos/Podfile</code> instead — see <a href="https://flutteredge.ai/docs/desktop#macos" target="_blank">Desktop → macOS</a>. Everything else in this codelab is the same.</p>
 </aside>
 
 
@@ -1085,7 +1032,7 @@ class MessageBubble extends StatelessWidget {
 ),
 </code></pre>
 <p>Run the app again, open <strong>Chat &amp; vision</strong>, attach a photo and ask <em>&#34;What do you see?&#34;</em></p>
-<aside class="warning"><p> Images only work on sessions opened with <code>createChat</code>. A session from <code>openChat</code> on a <code>.litertlm</code> model rejects image input with an error.</p>
+<aside class="warning"><p> Images <strong>and audio</strong> only work on sessions opened with <code>createChat</code>. A session from <code>openChat</code> on a <code>.litertlm</code> model rejects both, because its history is replayed as text whenever the engine switches sessions: <code>Image/audio input is not supported on concurrent (openSession) .litertlm sessions</code>.</p>
 </aside>
 
 
@@ -1746,7 +1693,7 @@ class DemoTile extends StatelessWidget {
 <h2 is-upgraded>Android: the app crashes when the engine starts</h2>
 <p>Check that you&#39;re on an arm64 device, not an x86_64 emulator, and that <code>abiFilters</code> is set.</p>
 <h2 is-upgraded>macOS: the engine fails to load</h2>
-<p>Open the built app&#39;s <code>Contents/Frameworks</code> folder. If <code>GemmaModelConstraintProvider.framework</code> is missing, the staging phase never ran: check that the <code>post_install</code> block is in <code>macos/Podfile</code> and run <code>flutter clean && flutter pub get</code> before building again.</p>
+<p>Open the built app&#39;s <code>Contents/Frameworks</code> folder. If <code>GemmaModelConstraintProvider.framework</code> is missing, the Swift package never contributed it: check the deployment target is 14.0, then <code>flutter clean && flutter pub get</code> and build again.</p>
 <h2 is-upgraded>The app is killed while loading the model</h2>
 <p>The device ran out of memory. Close other apps, try a device with more RAM, or lower <code>maxTokens</code>.</p>
 
@@ -1758,6 +1705,9 @@ class DemoTile extends StatelessWidget {
 <h2 is-upgraded>Where to go next</h2>
 <ul>
 <li><strong>Add voice. </strong><a href="https://pub.dev/packages/flutter_edge_ai_speech" target="_blank">flutter_edge_ai_speech</a> adds on-device speech-to-text (Whisper Tiny listens for 30 seconds at a time) and text-to-speech (Inflect-Nano is English-only and the fastest of the three), so a whole speech-to-speech loop runs without a network.</li>
+<li><strong>Let the model listen.</strong> Gemma 4 takes audio as an input, so a spoken question doesn&#39;t have to be transcribed first. Open the chat with <code>supportAudio: true</code> and send the recording itself: <pre><code language="language-dart" class="language-dart">await chat.addQueryChunk(Message.audioOnly(audioBytes: wavBytes, isUser: true));
+</code></pre>
+16 kHz mono WAV. One model answers instead of two, and nothing is lost to a wrong transcript.</li>
 <li><strong>Answer questions about your own documents. </strong><code>flutter_edge_ai_sqlite</code> and <code>flutter_edge_ai_qdrant</code> add on-device vector search for retrieval-augmented generation.</li>
 <li><strong>Give the model skills. </strong><code>flutter_edge_ai_agent</code> builds on function calling with reusable skills.</li>
 <li><strong>Explore the demo app. </strong><a href="https://github.com/jakansha2001/gemma-on-device-demo" target="_blank">gemma-on-device-demo</a> is a more complete version of this app, with a hands-free voice loop, a larger set of tools and Markdown/LaTeX rendering.</li>

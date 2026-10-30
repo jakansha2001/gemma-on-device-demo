@@ -10,7 +10,7 @@ Moving an older app across, or wondering where `flutter_gemma` went? That story 
 
 Four screens, one model.
 
-**Vision chat** takes a photo and answers questions about it, streaming as it writes. **Thinking mode** puts the model's reasoning in its own section above the answer, so you can watch it work through a problem before it commits. **Function calling** gives it six tools that change what's on screen — ask it to add a task and then read your list back, and it calls two in a row. **Voice loop** is the one people remember: you speak, it answers out loud, with three models running on the device and no network at any point.
+**Vision chat** takes a photo and answers questions about it, streaming as it writes. **Thinking mode** puts the model's reasoning in its own section above the answer, so you can watch it work through a problem before it commits. **Function calling** gives it six tools that change what's on screen — ask it to add a task and then read your list back, and it calls two in a row. **Voice loop** is the one people remember: you speak, it answers out loud, and there is no network at any point. It runs two ways, and there's a switch on the screen. Transcribe first and three models take a turn: Whisper writes down what you said, Gemma answers, Inflect reads the answer back. Or hand the recording straight to Gemma, which takes audio as an input, and Whisper sits out — one model fewer in the loop, and nothing can be lost to a wrong transcript.
 
 <table>
   <tr>
@@ -52,7 +52,7 @@ Use `fvm flutter` rather than plain `flutter` — an older SDK will refuse to re
 | Speech to text | Whisper Tiny | 151 MB |
 | Text to speech | Inflect-Nano-v2 | about 36 MB |
 
-Gemma downloads the first time you open any screen and all four share it. The speech models wait until you open the voice loop.
+Gemma downloads the first time you open any screen and all four share it. The speech models wait until you open the voice loop, and Whisper is only used on the transcribe-first route.
 
 The `.litertlm` format matters more than it sounds: one file covers Android, iOS and macOS, while the older `.task` format is MediaPipe-only and won't load on desktop at all.
 
@@ -64,9 +64,9 @@ Inflect replaced Matcha for speed. On my M1, one 4.8-second sentence took 0.6 s 
 
 **Android 11 (API 30) or newer**, arm64, with memory to spare. API 30 is the floor for `.litertlm` inference and speech, and the build is restricted to arm64 so you find out at build time instead of when the engine starts.
 
-**iOS 16 or newer, on a real iPhone.** That's what this project's Podfile declares; flutter_edge_ai itself asks for 15 or newer. The Simulator is CPU-only, so the GPU path you actually want isn't available there.
+**iOS 16 or newer, on a real iPhone.** That's what this project targets, in both the Podfile and the Xcode project; flutter_edge_ai itself asks for 15 or newer. The Simulator is CPU-only, so the GPU path you actually want isn't available there.
 
-**macOS on Apple Silicon.** Intel isn't supported by the engine. This is the easiest target to develop against.
+**macOS 14 or newer, on Apple Silicon.** Intel isn't supported by the engine, and the GPU companion libraries are built for macOS 14. This is still the easiest target to develop against.
 
 Web is out, because the web build of Gemma 4 E2B is text-only and the vision screen would have nothing to do.
 
@@ -94,7 +94,7 @@ lib/
 
 Two settings have defaults that are wrong for this app, and neither one is a compile error. `installModel` defaults `fileType` to `.task`, so a `.litertlm` file gets handed to an engine that can't read it — you download 2.6 GB and then watch it fail to load. And `createChat` falls back to `ModelType.gemmaIt` if you leave `modelType` out, which quietly turns Gemma 4's native tool calls into text pasted in the prompt. Function calling then looks broken for no visible reason.
 
-Images only work in the main conversation. `createChat()` uses the model's single primary session; `openChat()` gives you extra ones on the same loaded weights, which is what you want when every screen needs its own chat. On the `.litertlm` engine those extra sessions get rebuilt from their history as *text* whenever the engine switches between them, and a photo can't be replayed as text, so they refuse it outright: *"Image/audio input is not supported on concurrent (openSession) `.litertlm` sessions."* Text worked everywhere and the first image failed. The vision screen uses `createChat()`, which is fine here because only one screen is ever open.
+Anything that isn't text only works in the main conversation. `createChat()` uses the model's single primary session; `openChat()` gives you extra ones on the same loaded weights, which is what you want when every screen needs its own chat. On the `.litertlm` engine those extra sessions get rebuilt from their history as *text* whenever the engine switches between them, and a photo can't be replayed as text, so they refuse it outright: *"Image/audio input is not supported on concurrent (openSession) `.litertlm` sessions."* Text worked everywhere and the first image failed. Read that message again and note the word *audio*: when the voice loop learned to hand Gemma the recording, it hit the identical wall, on a screen that had been working for months. `GemmaService.openChat` now routes anything multimodal through `createChat()`, which is fine here because only one screen is ever open.
 
 A tool that takes no arguments still needs a schema. `Tool.parameters` defaults to an empty map and generation dies with `Failed to start streaming (code: 13)`, which tells you nothing. `get_current_time` carries `{'type': 'object', 'properties': <String, dynamic>{}}` for that reason alone.
 
@@ -112,13 +112,13 @@ Last one: Google's model card suggests temperature 1.0, topP 0.95, topK 64. At t
 fvm flutter test
 ```
 
-116 of them, aimed at the places where a bug hides until it matters: the tools never throw whatever the model sends, WAV and raw audio survive a round trip including malformed input, the sentence splitter doesn't trip on "3.14" or "Dr. Bhatt", the text cleanup runs against real output that leaked, voice detection is checked in quiet and noisy conditions, and the voice loop is driven end to end with fake models to prove every turn finishes instead of hanging.
+121 of them, aimed at the places where a bug hides until it matters: the tools never throw whatever the model sends, WAV and raw audio survive a round trip including malformed input, the sentence splitter doesn't trip on "3.14" or "Dr. Bhatt", the text cleanup runs against real output that leaked, voice detection is checked in quiet and noisy conditions, and the voice loop is driven end to end with fake models to prove every turn finishes instead of hanging.
 
 ## Platform setup worth knowing about
 
 On Android 14 and newer, a large foreground download crashes unless the app declares `FOREGROUND_SERVICE_DATA_SYNC` and marks WorkManager's `SystemForegroundService` as a data sync service. Both are in the manifest. The OpenCL entries the GPU needs come from the package's own manifest, so there's nothing to add for those.
 
-macOS needs the `post_install` block in `macos/Podfile`. Two GPU companion libraries can't be bundled automatically, and that block adds the build phase that stages them into the app. Skip it and the build still succeeds — it's the first model load that fails, with `Library not loaded: @rpath/libGemmaModelConstraintProvider.dylib`. The entitlements there also cover loading those libraries, the network, file picking and the microphone.
+macOS needs two GPU companion libraries next to the engine, and getting them there used to mean a `post_install` block in `macos/Podfile` that staged them in by hand. Since flutter_edge_ai_litertlm 1.19.0 the package's own Swift package ships them, so with Swift Package Manager on they are embedded and signed for you and the Podfile block is gone. What's left is the deployment target: those libraries are built for macOS 14, so the Runner target and the Podfile both say 14.0, and Xcode refuses the build if they don't. The entitlements still cover loading the libraries, the network, file picking and the microphone.
 
 The iPhone memory entitlements are deliberately absent from the macOS build. They do nothing on a Mac and they make Xcode demand a signing certificate.
 

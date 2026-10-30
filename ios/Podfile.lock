@@ -1,64 +1,15 @@
 PODS:
-  - background_downloader (0.0.1):
-    - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.13.4):
-    - Flutter
-    - MediaPipeTasksGenAI (= 0.10.33)
-    - MediaPipeTasksGenAIC (= 0.10.33)
-    - TensorFlowLiteC (= 0.0.1-nightly.20250619)
-  - image_picker_ios (0.0.1):
-    - Flutter
-  - large_file_handler (0.0.1):
-    - Flutter
-  - MediaPipeTasksGenAI (0.10.33):
-    - MediaPipeTasksGenAIC (= 0.10.33)
-  - MediaPipeTasksGenAIC (0.10.33)
-  - shared_preferences_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - TensorFlowLiteC (0.0.1-nightly.20250619):
-    - TensorFlowLiteC/Core (= 0.0.1-nightly.20250619)
-  - TensorFlowLiteC/Core (0.0.1-nightly.20250619)
 
 DEPENDENCIES:
-  - background_downloader (from `.symlinks/plugins/background_downloader/ios`)
   - Flutter (from `Flutter`)
-  - flutter_gemma (from `.symlinks/plugins/flutter_gemma/ios`)
-  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
-  - large_file_handler (from `.symlinks/plugins/large_file_handler/ios`)
-  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-
-SPEC REPOS:
-  trunk:
-    - MediaPipeTasksGenAI
-    - MediaPipeTasksGenAIC
-    - TensorFlowLiteC
 
 EXTERNAL SOURCES:
-  background_downloader:
-    :path: ".symlinks/plugins/background_downloader/ios"
   Flutter:
     :path: Flutter
-  flutter_gemma:
-    :path: ".symlinks/plugins/flutter_gemma/ios"
-  image_picker_ios:
-    :path: ".symlinks/plugins/image_picker_ios/ios"
-  large_file_handler:
-    :path: ".symlinks/plugins/large_file_handler/ios"
-  shared_preferences_foundation:
-    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
 
 SPEC CHECKSUMS:
-  background_downloader: a05c77d32a0d70615b9c04577aa203535fc924ff
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 5a7a785813c235bfcac6fb7149d917708b484391
-  image_picker_ios: 4f2f91b01abdb52842a8e277617df877e40f905b
-  large_file_handler: e3686e246052b0f03955789d3a04604574f80afe
-  MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
-  MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802
-  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
-  TensorFlowLiteC: 215ef57653dd0fa09a474e7d94d79ae64a870b28
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
 
 PODFILE CHECKSUM: c0915517eae1a513480956f02c7781054ca94770
 

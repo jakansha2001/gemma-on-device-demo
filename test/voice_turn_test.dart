@@ -14,12 +14,12 @@ void main() {
   final pcm = Uint8List(3200);
 
   /// Builds a turn whose behaviour each test can steer.
-  ({VoiceTurn turn, List<String> spokenAloud, List<String> synthesized})
-  build({
+  ({VoiceTurn turn, List<String> spokenAloud, List<String> synthesized}) build({
     String transcript = 'plan a trip',
     List<String> tokens = const ['Hello there. ', 'Second sentence here.'],
     Future<String> Function(Uint8List)? transcribeOverride,
     Stream<String> Function(String)? respondOverride,
+    Stream<String> Function(Uint8List)? respondToAudio,
     Future<Uint8List> Function(String)? synthesizeOverride,
     Duration playbackDuration = Duration.zero,
   }) {
@@ -27,6 +27,7 @@ void main() {
     final synthesized = <String>[];
 
     final turn = VoiceTurn(
+      respondToAudio: respondToAudio,
       transcribe: transcribeOverride ?? (_) async => transcript,
       respond:
           respondOverride ??
@@ -116,7 +117,11 @@ void main() {
         respondOverride: (_) async* {
           for (final t in [
             'First sentence here. ',
-            'a ', 'b ', 'c ', 'd ', 'e ',
+            'a ',
+            'b ',
+            'c ',
+            'd ',
+            'e ',
             'Last one.',
           ]) {
             generated.add(t);
@@ -180,7 +185,8 @@ void main() {
       expect(
         secondSynthStart,
         lessThan(firstPlayEnd),
-        reason: 'synthesis of sentence 2 must overlap playback of sentence 1\n'
+        reason:
+            'synthesis of sentence 2 must overlap playback of sentence 1\n'
             'timeline: $timeline',
       );
     });
@@ -247,7 +253,8 @@ void main() {
       expect(
         sw.elapsedMilliseconds,
         lessThan(430),
-        reason: 'took ${sw.elapsedMilliseconds}ms — synthesis is not '
+        reason:
+            'took ${sw.elapsedMilliseconds}ms — synthesis is not '
             'overlapping playback',
       );
     });
@@ -272,7 +279,12 @@ void main() {
     test('Whisper silence hallucinations are treated as noise', () async {
       // These are what a hands-free loop used to talk to itself about.
       for (final noise in [
-        '[BLANK_AUDIO]', 'you', 'Thank you.', '...', '(silence)', 'Bye',
+        '[BLANK_AUDIO]',
+        'you',
+        'Thank you.',
+        '...',
+        '(silence)',
+        'Bye',
       ]) {
         expect(VoiceTurn.isNoise(noise), isTrue, reason: noise);
       }
@@ -394,6 +406,50 @@ void main() {
 
       // Cancelling must stop it well short of speaking all five.
       expect(f.spokenAloud.length, lessThan(5));
+    });
+  });
+
+  group('audio straight to the model', () {
+    test('skips transcription entirely and still speaks the reply', () async {
+      var transcribeCalls = 0;
+      final heard = <int>[];
+
+      final h = build(
+        transcribeOverride: (_) async {
+          transcribeCalls++;
+          return 'should never be used';
+        },
+        respondToAudio: (audio) async* {
+          heard.add(audio.length);
+          yield 'Heard you. ';
+          yield 'All good.';
+        },
+      );
+
+      final events = await h.turn.run(pcm).toList();
+
+      expect(transcribeCalls, 0, reason: 'Whisper must sit this turn out');
+      expect(heard, [pcm.length], reason: 'the model gets the recording');
+      expect(
+        events.whereType<VoiceTranscript>(),
+        isEmpty,
+        reason: 'nothing transcribed it, so there is no transcript',
+      );
+      expect(h.synthesized.join(' '), contains('Heard you'));
+      expect(h.spokenAloud, isNotEmpty, reason: 'the reply is spoken aloud');
+      expect(events.last, isA<VoicePhaseChanged>());
+    });
+
+    test('a failure on the audio route still terminates the stream', () async {
+      final h = build(
+        respondToAudio: (_) async* {
+          throw StateError('model refused the audio');
+        },
+      );
+
+      final events = await h.turn.run(pcm).toList();
+
+      expect(events.whereType<VoiceTurnFailed>(), hasLength(1));
     });
   });
 }
