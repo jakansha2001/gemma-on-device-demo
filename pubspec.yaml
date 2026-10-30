@@ -21,11 +21,11 @@ dependencies:
   # wire them in FlutterEdgeAi.initialize(). We ship exactly one format
   # (.litertlm), which covers Android + iOS + macOS from a single model file —
   # so no flutter_edge_ai_mediapipe, and no MediaPipe native payload.
-  flutter_edge_ai: ^2.1.1
-  flutter_edge_ai_litertlm: ^1.10.1
+  flutter_edge_ai: ^2.5.4
+  flutter_edge_ai_litertlm: ^1.19.0
   # STT + TTS + the VoiceSession loop. Native only; rides on litertlm's
   # bundled native library, so it adds no second copy of libLiteRtLm.
-  flutter_edge_ai_speech: ^0.5.4
+  flutter_edge_ai_speech: ^0.5.12
 
   # Renders the model's markdown. `flutter_markdown` is discontinued as of
   # 2025; gpt_markdown is actively maintained and built for LLM output, which
