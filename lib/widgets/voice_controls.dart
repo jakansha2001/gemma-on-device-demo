@@ -4,9 +4,17 @@ import 'package:gemma_vision_demo/theme.dart';
 
 /// Shows which of the three models is currently working.
 class PipelineBar extends StatelessWidget {
-  const PipelineBar({super.key, required this.stage});
+  const PipelineBar({
+    super.key,
+    required this.stage,
+    this.skipTranscribe = false,
+  });
 
   final VoiceStage stage;
+
+  /// Greys out and strikes through the transcribe step, for the route where
+  /// the model takes the recording itself.
+  final bool skipTranscribe;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +31,12 @@ class PipelineBar extends StatelessWidget {
             child: _PipelineStep(
               label: step.$1,
               icon: step.$3,
-              active: stage == step.$2,
-              done: stage.index > step.$2.index && stage != VoiceStage.idle,
+              active: stage == step.$2 && !(skipTranscribe && index == 1),
+              done:
+                  stage.index > step.$2.index &&
+                  stage != VoiceStage.idle &&
+                  !(skipTranscribe && index == 1),
+              skipped: skipTranscribe && index == 1,
             ),
           ),
           if (index < steps.length - 1)
@@ -45,12 +57,14 @@ class _PipelineStep extends StatelessWidget {
     required this.icon,
     required this.active,
     required this.done,
+    this.skipped = false,
   });
 
   final String label;
   final IconData icon;
   final bool active;
   final bool done;
+  final bool skipped;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +75,7 @@ class _PipelineStep extends StatelessWidget {
         : AppColors.textTertiary;
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 220),
-      opacity: active || done ? 1 : .45,
+      opacity: skipped ? .3 : (active || done ? 1 : .45),
       child: Column(
         children: [
           Icon(icon, size: 19, color: color),
@@ -74,6 +88,7 @@ class _PipelineStep extends StatelessWidget {
               fontSize: 13,
               letterSpacing: .2,
               fontWeight: FontWeight.w700,
+              decoration: skipped ? TextDecoration.lineThrough : null,
             ),
           ),
         ],

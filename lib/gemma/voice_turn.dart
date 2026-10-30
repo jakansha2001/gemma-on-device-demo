@@ -53,7 +53,8 @@ class VoiceTurnFailed extends VoiceTurnEvent {
   final Object error;
 }
 
-/// Runs one voice turn: transcribe → generate → speak.
+/// Runs one voice turn: transcribe → generate → speak, or, when the model
+/// hears audio itself, generate → speak.
 ///
 /// **Why this does not use `VoiceSession`.** flutter_edge_ai_speech ships
 /// `VoiceSession.fromChat`, which runs this chain in one call.
@@ -75,6 +76,7 @@ class VoiceTurn {
   VoiceTurn({
     required this.transcribe,
     required this.respond,
+    this.respondToAudio,
     required this.synthesize,
     required this.synthesizerSampleRate,
     required this.prepareClip,
@@ -87,6 +89,13 @@ class VoiceTurn {
 
   /// Send [prompt] to the model and stream back its reply, token by token.
   final Stream<String> Function(String prompt) respond;
+
+  /// Hand the recording itself to the model and stream back its reply.
+  ///
+  /// Gemma 4 takes audio as an input, so when this is set the turn skips
+  /// speech-to-text entirely: no Whisper, no transcript, one model fewer in
+  /// the loop. Null keeps the transcribe-first path.
+  final Stream<String> Function(Uint8List pcm)? respondToAudio;
 
   /// One sentence of text in, PCM out.
   final Future<Uint8List> Function(String text) synthesize;
@@ -159,23 +168,37 @@ class VoiceTurn {
     final token = _RunToken();
     _current = token;
 
-    // --- 1. Transcribe ------------------------------------------------
-    yield const VoicePhaseChanged(VoicePhase.transcribing);
-    String transcript;
-    try {
-      transcript = await transcribe(pcm16kMono);
-    } catch (e) {
-      yield VoiceTurnFailed(e);
-      return;
-    }
-    if (token.cancelled) return;
+    // --- 1. Turn the recording into something the model can answer -----
+    //
+    // Two routes. The default transcribes first, which is the only option
+    // for a model that hears nothing. With [respondToAudio] the recording
+    // goes straight in and this step disappears.
+    final direct = respondToAudio;
+    Stream<String> reply;
 
-    if (isNoise(transcript)) {
-      // Do NOT hand this to the model — see _noiseTranscripts.
-      yield const VoiceHeardNothing();
-      return;
+    if (direct == null) {
+      yield const VoicePhaseChanged(VoicePhase.transcribing);
+      String transcript;
+      try {
+        transcript = await transcribe(pcm16kMono);
+      } catch (e) {
+        yield VoiceTurnFailed(e);
+        return;
+      }
+      if (token.cancelled) return;
+
+      if (isNoise(transcript)) {
+        // Do NOT hand this to the model — see _noiseTranscripts.
+        yield const VoiceHeardNothing();
+        return;
+      }
+      yield VoiceTranscript(transcript.trim());
+      reply = respond(transcript);
+    } else {
+      // Nothing to show as a transcript: the model is the only thing that
+      // ever hears this audio.
+      reply = direct(pcm16kMono);
     }
-    yield VoiceTranscript(transcript.trim());
 
     // --- 2. Generate and speak, concurrently --------------------------
     yield const VoicePhaseChanged(VoicePhase.thinking);
@@ -186,7 +209,7 @@ class VoiceTurn {
     // earlier version closed the controller first and then tried to add the
     // error, which threw "Cannot add event after closing" and swallowed it.
     final events = StreamController<VoiceTurnEvent>();
-    final pipeline = _pipeline(transcript, events, token);
+    final pipeline = _pipeline(reply, events, token);
     unawaited(
       pipeline.whenComplete(() {
         if (!events.isClosed) events.close();
@@ -200,7 +223,7 @@ class VoiceTurn {
   /// Stream the reply, cutting it into sentences and speaking each as it
   /// completes. Never throws: failures become [VoiceTurnFailed] events.
   Future<void> _pipeline(
-    String transcript,
+    Stream<String> reply,
     StreamController<VoiceTurnEvent> events,
     _RunToken token,
   ) async {
@@ -214,7 +237,7 @@ class VoiceTurn {
 
     try {
       final full = StringBuffer();
-      await for (final piece in respond(transcript)) {
+      await for (final piece in reply) {
         if (token.cancelled) break;
         full.write(piece);
         if (!events.isClosed) {

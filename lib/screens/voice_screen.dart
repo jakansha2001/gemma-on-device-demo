@@ -105,6 +105,24 @@ class _VoiceScreenState extends State<VoiceScreen> {
   InferenceChat? _chat;
   VoiceTurn? _turn;
 
+  /// When true the recording goes straight to Gemma and Whisper sits out the
+  /// turn. Off by default, so the demo opens on the three-model pipeline.
+  bool _directAudio = false;
+
+  /// Rebuilds [_turn] for the current route. Set once the models are up.
+  VoiceTurn Function()? _rebuildTurn;
+
+  void _setDirectAudio(bool value) {
+    if (_directAudio == value) return;
+    setState(() {
+      _directAudio = value;
+      _transcript = null;
+      _reply = '';
+      _spoken = '';
+      _turn = _rebuildTurn?.call() ?? _turn;
+    });
+  }
+
   bool _loading = true;
   GemmaFailure? _failure;
   String _setupStage = 'Preparing';
@@ -251,6 +269,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
       _setStage('Loading ${Models.llmDisplayName}');
       chat = await GemmaService.instance.openChat(
         tools: const [],
+        // Gemma 4 hears audio, so this chat can take the recording itself.
+        supportAudio: true,
         // See Models.voiceTemperature: a code-switched token is worse here
         // than on screen, because the synthesizer cannot say it.
         temperature: Models.voiceTemperature,
@@ -276,7 +296,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
       final recognizerRef = recognizer;
       final synthRef = synth;
       final chatRef = chat;
-      final turn = VoiceTurn(
+      VoiceTurn buildTurn() => VoiceTurn(
         transcribe: (pcm) =>
             recognizerRef.transcribe(pcm, language: Models.sttLanguage),
         respond: (prompt) async* {
@@ -287,12 +307,29 @@ class _VoiceScreenState extends State<VoiceScreen> {
             if (r is TextResponse) yield r.token;
           }
         },
+        respondToAudio: !_directAudio
+            ? null
+            : (pcm) async* {
+                // The model is given the recording as a WAV, with no transcript
+                // anywhere in the loop.
+                await chatRef.addQueryChunk(
+                  Message.audioOnly(
+                    audioBytes: AudioConverter.pcmToWav(pcm, sampleRate: 16000),
+                    isUser: true,
+                  ),
+                );
+                await for (final r in chatRef.generateChatResponseAsync()) {
+                  if (r is TextResponse) yield r.token;
+                }
+              },
         synthesize: synthRef.synthesize,
         synthesizerSampleRate: synthRef.sampleRate,
         prepareClip: _prepareClip,
         playClip: _playClip,
         stopPlayback: _stopAllPlayers,
       );
+      final turn = buildTurn();
+      _rebuildTurn = buildTurn;
 
       if (!mounted) {
         await closePartial();
@@ -915,7 +952,13 @@ class _VoiceScreenState extends State<VoiceScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                PipelineBar(stage: _stage),
+                PipelineBar(stage: _stage, skipTranscribe: _directAudio),
+                Gap.md,
+                _AudioRouteSwitch(
+                  direct: _directAudio,
+                  busy: busy,
+                  onChanged: _setDirectAudio,
+                ),
                 Gap.lg,
                 if (_transcript == null && _reply.isEmpty && _turnError == null)
                   Padding(
@@ -933,7 +976,22 @@ class _VoiceScreenState extends State<VoiceScreen> {
                                 'back without a single network call.',
                     ),
                   ),
-                if (_transcript != null)
+                if (_directAudio && _reply.isNotEmpty)
+                  VoicePanel(
+                    label: 'You said',
+                    color: AppColors.voice,
+                    child: const Text(
+                      'Nothing transcribed it — Gemma heard the recording '
+                      'itself.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                        height: 1.4,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                if (!_directAudio && _transcript != null)
                   VoicePanel(
                     label: 'You said',
                     color: AppColors.voice,
@@ -996,6 +1054,63 @@ class _VoiceScreenState extends State<VoiceScreen> {
           onStop: _stage == VoiceStage.idle ? null : _stopEverything,
         ),
       ],
+    );
+  }
+}
+
+/// Switches the turn between "transcribe first" and handing the recording
+/// straight to the model. Locked mid-turn: swapping the route under a
+/// running turn would leave half of it on the other path.
+class _AudioRouteSwitch extends StatelessWidget {
+  const _AudioRouteSwitch({
+    required this.direct,
+    required this.busy,
+    required this.onChanged,
+  });
+
+  final bool direct;
+  final bool busy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: busy ? .5 : 1,
+      child: AppCard(
+        padding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
+        color: direct ? AppColors.voice.withValues(alpha: .08) : null,
+        borderColor: direct ? AppColors.voice.withValues(alpha: .28) : null,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    direct
+                        ? 'Gemma hears you directly'
+                        : 'Whisper transcribes first',
+                    style: AppText.heading.copyWith(fontSize: 16),
+                  ),
+                  Gap.xs,
+                  Text(
+                    direct
+                        ? 'Two models in the loop — the recording goes to '
+                              'Gemma as audio.'
+                        : 'Three models in the loop, the usual pipeline.',
+                    style: AppText.caption,
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: direct,
+              onChanged: busy ? null : onChanged,
+              activeTrackColor: AppColors.voice,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
