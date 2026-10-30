@@ -45,26 +45,46 @@ class GemmaService {
   /// Load the weights (or return the already-loaded model).
   Future<InferenceModel> loadModel() async {
     if (_model != null) return _model!;
+    // Both media flags are set here, for every screen, on purpose. Changing
+    // an argument to getActiveModel closes the loaded model and loads a new
+    // one, so a screen that asked for audio while another asked for images
+    // would pay 2.6 GB of reload on every navigation. Gemma 4 loads the
+    // vision and audio encoders on demand anyway.
     _model = await FlutterEdgeAi.getActiveModel(
       maxTokens: Models.llmMaxTokens,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,
       maxNumImages: 1,
+      supportAudio: true,
     );
     return _model!;
   }
 
+  /// Whether a chat with these media flags has to own the primary session.
+  ///
+  /// Audio was the second thing to hit this: the voice loop ran on a
+  /// concurrent session happily for months, and the moment it handed Gemma a
+  /// recording instead of a transcript it got the same `UnsupportedError`
+  /// images get. The engine's message names both.
+  static bool needsPrimarySession({
+    required bool supportImage,
+    required bool supportAudio,
+  }) => supportImage || supportAudio;
+
   /// A conversation on the shared model.
   ///
-  /// [tools] and [enableThinking] are per-chat, so the vision screen, the
-  /// function-calling screen and the voice loop can each configure the same
-  /// weights differently.
+  /// [tools], [enableThinking] and the media flags are per-chat, so the
+  /// vision screen, the function-calling screen and the voice loop can each
+  /// configure the same model differently.
   ///
-  /// **Why this branches on [supportImage].** `openChat()` gives a fully
+  /// [supportAudio] lets a chat take a recording directly — Gemma 4 hears
+  /// audio, so the voice loop can skip speech-to-text altogether.
+  ///
+  /// **Why this branches on the media flags.** `openChat()` gives a fully
   /// independent, concurrent session — but on the `.litertlm` FFI engine those
   /// sessions replay their history as text when the engine switches between
-  /// them, so they cannot carry images and reject them with an
-  /// `UnsupportedError`. Multimodal therefore has to go through
+  /// them, so they cannot carry images *or audio* and reject both with an
+  /// `UnsupportedError`. Anything multimodal therefore has to go through
   /// `createChat()`, which owns the model's single primary session.
   ///
   /// That is fine here because the app is a navigation stack: only one screen
@@ -73,6 +93,7 @@ class GemmaService {
   /// the constraint you would hit.
   Future<InferenceChat> openChat({
     bool supportImage = false,
+    bool supportAudio = false,
     double? temperature,
     int? topK,
     double? topP,
@@ -82,14 +103,18 @@ class GemmaService {
     int? maxOutputTokens,
   }) async {
     final model = await loadModel();
-    // See the doc comment: images require the primary session.
-    final open = supportImage ? model.createChat : model.openChat;
+    final multimodal = needsPrimarySession(
+      supportImage: supportImage,
+      supportAudio: supportAudio,
+    );
+    final open = multimodal ? model.createChat : model.openChat;
     return open(
       // Per-chat overrides: the voice loop runs tighter than the screens.
       temperature: temperature ?? Models.llmTemperature,
       topK: topK ?? Models.llmTopK,
       topP: topP ?? Models.llmTopP,
       supportImage: supportImage,
+      supportAudio: supportAudio,
       tools: tools,
       supportsFunctionCalls: tools.isNotEmpty,
       enableThinking: enableThinking,
